@@ -47,6 +47,61 @@ async def create_order(authorization: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def fetch_payment(payment_id: str) -> dict[str, Any]:
+    """Fetch a payment directly from Razorpay (live keys required)."""
+    async with httpx.AsyncClient(auth=_auth(), timeout=15) as client:
+        resp = await client.get(f"https://api.razorpay.com/v1/payments/{payment_id}")
+        if resp.status_code >= 400:
+            raise RazorpayError(
+                f"Fetch payment failed: {resp.status_code} {resp.text[:200]}"
+            )
+        return resp.json()
+
+
+async def capture_payment_by_id(payment_id: str, amount_paise: int) -> dict[str, Any]:
+    async with httpx.AsyncClient(auth=_auth(), timeout=15) as client:
+        cap = await client.post(
+            f"https://api.razorpay.com/v1/payments/{payment_id}/capture",
+            json={"amount": amount_paise, "currency": "INR"},
+        )
+        if cap.status_code >= 400:
+            raise RazorpayError(f"Capture failed: {cap.status_code} {cap.text[:200]}")
+        return cap.json()
+
+
+async def finalize_payment(order: dict[str, Any]) -> dict[str, Any]:
+    """After checkout: capture an authorized payment, or report pending state."""
+    if order.get("simulated"):
+        await asyncio_sleep()
+        return {
+            "id": f"pay_sim_{uuid.uuid4().hex[:10]}",
+            "status": "captured",
+            "order_id": order["id"],
+            "simulated": True,
+        }
+    try:
+        async with httpx.AsyncClient(auth=_auth(), timeout=15) as client:
+            list_resp = await client.get(
+                f"https://api.razorpay.com/v1/orders/{order['id']}/payments"
+            )
+            items = (
+                list_resp.json().get("items", []) if list_resp.status_code < 400 else []
+            )
+        if not items:
+            return {"id": None, "status": "awaiting_checkout", "order_id": order["id"]}
+        latest = items[0]
+        if latest["status"] == "authorized":
+            return await capture_payment_by_id(latest["id"], order["amount"])
+        return {
+            "id": latest["id"],
+            "status": latest["status"],
+            "method": latest.get("method"),
+            "order_id": order["id"],
+        }
+    except httpx.HTTPError as exc:
+        raise RazorpayError(f"Finalize failed: {exc}") from exc
+
+
 async def capture_payment(order: dict[str, Any]) -> dict[str, Any]:
     if not order.get("simulated"):
         payment_id = None

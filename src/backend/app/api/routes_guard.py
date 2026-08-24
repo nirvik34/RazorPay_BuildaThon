@@ -12,7 +12,13 @@ from pydantic import BaseModel
 from ..config import settings
 from ..state import LOCK, new_id, now_iso, store
 from ..ws import broadcast_sync
-from ..services.razorpay_service import RazorpayError, capture_payment, create_order
+from ..services.razorpay_service import (
+    RazorpayError,
+    capture_payment_by_id,
+    create_order,
+    fetch_payment,
+    finalize_payment,
+)
 
 router = APIRouter(prefix="/guard", tags=["guard"])
 
@@ -177,7 +183,7 @@ async def execute(payload: ExecuteIn) -> dict:
 
     try:
         order = await create_order(auth)
-        payment = await capture_payment(order)
+        payment = await finalize_payment(order)
     except RazorpayError as exc:
         with LOCK:
             state = store.state
@@ -198,7 +204,8 @@ async def execute(payload: ExecuteIn) -> dict:
     with LOCK:
         state = store.state
         state["payments"] = state.get("payments", {})
-        state["payments"][payment["id"]] = {
+        payment_key = payment.get("id") or f"pending_{payload.authorizationId}"
+        state["payments"][payment_key] = {
             **payment,
             "authorizationId": payload.authorizationId,
             "requestId": request_id,
@@ -210,7 +217,8 @@ async def execute(payload: ExecuteIn) -> dict:
                 "at": now_iso(),
                 "label": "Payment captured"
                 if payment.get("status") == "captured"
-                else "Payment processing",
+                else "Payment initiated — awaiting checkout",
+                "detail": order.get("id"),
             }
         )
         store.save()
@@ -219,11 +227,110 @@ async def execute(payload: ExecuteIn) -> dict:
         "payment_update",
         {
             "requestId": request_id,
-            "paymentId": payment["id"],
+            "paymentId": payment.get("id"),
             "status": payment.get("status"),
         },
     )
     return {"ok": True, "order": order, "payment": payment}
+
+
+class CheckoutConfirmIn(BaseModel):
+    payment_id: str
+    order_id: str
+    authorization_id: str
+
+
+@router.post("/payments/razorpay/callback")
+async def razorpay_checkout_callback(payload: CheckoutConfirmIn) -> dict:
+    """Called by the checkout page after the user completes Razorpay payment.
+
+    Verifies the payment server-side against the Razorpay API (never trusts the
+    browser), then captures it if authorized.
+    """
+    with LOCK:
+        state = store.state
+        auth = state["authorizations"].get(payload.authorization_id)
+        if not auth:
+            raise HTTPException(status_code=404, detail={"code": "AUTH_NOT_FOUND"})
+        request_id = auth["requestId"]
+
+    try:
+        remote = await fetch_payment(payload.payment_id)
+    except RazorpayError as exc:
+        raise HTTPException(
+            status_code=502, detail={"code": "VERIFY_FAILED", "message": str(exc)}
+        ) from exc
+
+    if remote.get("order_id") != payload.order_id:
+        raise HTTPException(status_code=400, detail={"code": "ORDER_MISMATCH"})
+
+    if remote.get("status") == "authorized":
+        remote = await capture_payment_by_id(remote["id"], remote["amount"])
+
+    with LOCK:
+        state = store.state
+        state["payments"][remote["id"]] = {
+            **remote,
+            "authorizationId": payload.authorization_id,
+            "requestId": request_id,
+        }
+        state["audit"][request_id].append(
+            {
+                "eventId": new_id("evt"),
+                "requestId": request_id,
+                "at": now_iso(),
+                "label": f"Payment {remote['status']}",
+                "detail": f"{remote['id']} via {remote.get('method', 'razorpay')}",
+            }
+        )
+        store.save()
+
+    broadcast_sync(
+        "payment_update",
+        {
+            "requestId": request_id,
+            "paymentId": remote["id"],
+            "status": remote.get("status"),
+        },
+    )
+    return {
+        "ok": True,
+        "payment": {
+            "id": remote["id"],
+            "status": remote["status"],
+            "method": remote.get("method"),
+        },
+    }
+
+
+@router.get("/payments/order/{authorization_id}")
+async def order_for_authorization(authorization_id: str) -> dict:
+    """Public data needed to render the Razorpay Checkout page (key id is publishable)."""
+    state = store.snapshot()
+    auth = state["authorizations"].get(authorization_id)
+    if not auth:
+        raise HTTPException(status_code=404, detail={"code": "AUTH_NOT_FOUND"})
+    payment = next(
+        (
+            p
+            for p in state.get("payments", {}).values()
+            if p.get("authorizationId") == authorization_id
+        ),
+        None,
+    )
+    return {
+        "orderId": payment.get("order_id") if payment else None,
+        "keyId": settings.razorpay_key_id,
+        "live": settings.razorpay_live,
+        "amount": payment.get("amount", auth["amount"] * 100)
+        if payment
+        else auth["amount"] * 100,
+        "currency": "INR",
+        "product": auth["product"],
+        "merchant": auth["merchant"],
+        "status": payment.get("status", "created") if payment else "created",
+        "requestId": auth["requestId"],
+    }
 
 
 @router.post("/webhooks/razorpay")

@@ -23,6 +23,19 @@ API = os.environ.get("GUARD_API", "http://localhost:8000").rstrip("/")
 AGENT_ID = os.environ.get("GUARD_AGENT_ID", "claude-shopping-01")
 APPROVAL_TIMEOUT_S = int(os.environ.get("GUARD_APPROVAL_TIMEOUT", "180"))
 POLL_INTERVAL_S = 2
+PUBLIC_URL = os.environ.get("GUARD_PUBLIC_URL", "http://localhost:8002").rstrip("/")
+
+SHOP_LINKS = {
+    "amazon_in": "https://www.amazon.in/s?k={q}",
+    "flipkart": "https://www.flipkart.com/search?q={q}",
+}
+
+
+def shop_links(query: str) -> dict:
+    from urllib.parse import quote
+
+    return {name: tpl.format(q=quote(query)) for name, tpl in SHOP_LINKS.items()}
+
 
 PROTOCOL_VERSION = "2024-11-05"
 SERVER_INFO = {"name": "agentpay-guard", "version": "0.3.0"}
@@ -65,6 +78,14 @@ TOOLS = [
         "description": "Fetch the user's current spending policy (limits, blocked categories, approval rules) so you can respect it proactively.",
         "inputSchema": {"type": "object", "properties": {}},
     },
+    {
+        "name": "check_payment",
+        "description": "Check the payment status of a purchase (useful after the user completes Razorpay Checkout). Optionally pass request_id; defaults to the most recent transaction.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"request_id": {"type": "string"}},
+        },
+    },
 ]
 
 
@@ -106,6 +127,32 @@ def _execute(request_id: str) -> str:
     )
     order = pay.get("order", {})
     payment = pay.get("payment", {})
+
+    if payment.get("status") == "captured":
+        mode = (
+            "SIMULATED (no Razorpay keys configured)"
+            if payment.get("simulated")
+            else "LIVE Razorpay"
+        )
+        return (
+            f"✅ PAYMENT SUCCESSFUL\n"
+            f"order: {order.get('id')}\n"
+            f"payment: {payment.get('id')} ({payment.get('status')})\n"
+            f"authorization: {auth_id} (single-use, now consumed)\n"
+            f"mode: {mode}"
+        )
+
+    # Live Razorpay order created — user completes payment via real Checkout
+    checkout_url = f"{PUBLIC_URL}/checkout/{auth_id}"
+    return (
+        f"💳 APPROVED — payment link ready. Share this with the user and ask them to open it:\n"
+        f"{checkout_url}\n"
+        f"(opens Razorpay Checkout — UPI/cards/netbanking; test mode shows test methods)\n"
+        f"order: {order.get('id')} · authorization: {auth_id} (expires in 5 minutes)\n"
+        f"After they pay, confirm with the check_payment tool for request {request_id}."
+    )
+    order = pay.get("order", {})
+    payment = pay.get("payment", {})
     mode = (
         "SIMULATED (set Razorpay test keys in backend .env for real orders)"
         if payment.get("simulated")
@@ -132,11 +179,41 @@ def tool_search(args: dict) -> str:
         }
         for item in search_catalog(query)
     ]
+    response: dict = {"results": hits[:8], "buy_online_search_links": shop_links(query)}
     if not hits:
-        return json.dumps(
-            {"results": [], "note": "No products matched. Try broader keywords."}
+        response["note"] = (
+            "Not in the AgentPay catalog. Share the buy_online_search_links with the user, "
+            "or pick the closest catalog product. Never invent a product_id."
         )
-    return json.dumps({"results": hits[:8]})
+    return json.dumps(response)
+
+
+def tool_check_payment(args: dict) -> str:
+    request_id = str(args.get("request_id", "")).strip()
+    if not request_id:
+        txns = http("GET", "/transactions")
+        rows = txns.get("transactions", [])
+        if not rows:
+            return "No transactions found."
+        request_id = rows[0]["request"]["requestId"]
+    status = http("GET", f"/agent/payment-status/{request_id}")
+    payment = status.get("payment")
+    request = status.get("request", {})
+    lines = [
+        f"request: {request_id}",
+        f"product: {request.get('product')} ₹{request.get('amount')}",
+        f"decision: {status.get('decision', {}).get('decision')}",
+    ]
+    if payment:
+        lines += [
+            f"payment: {payment.get('id')} — {payment.get('status')}"
+            + (f" via {payment['method']}" if payment.get("method") else "")
+        ]
+        if payment.get("status") == "awaiting_checkout":
+            lines.append("User has not completed Razorpay Checkout yet.")
+    else:
+        lines.append("No payment attempted yet.")
+    return "\n".join(lines)
 
 
 def _wait_for_user(request_id: str) -> dict | None:
@@ -161,7 +238,11 @@ def tool_purchase(args: dict) -> str:
         None,
     )
     if item is None:
-        return f"❌ Unknown product_id '{product_id}'. Call search_products first."
+        return (
+            f"❌ Unknown product_id '{product_id}'. Call search_products first.\n"
+            f"If the user wants something outside the catalog, share these links instead of purchasing:\n"
+            + json.dumps(shop_links(product_id.replace("-", " ")), indent=2)
+        )
 
     try:
         decision = http(
@@ -216,6 +297,8 @@ def dispatch(name: str, args: dict) -> str:
         return tool_purchase(args)
     if name == "get_guard_policy":
         return tool_policy({})
+    if name == "check_payment":
+        return tool_check_payment(args)
     return f"Unknown tool: {name}"
 
 
