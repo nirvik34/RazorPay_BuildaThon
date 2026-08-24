@@ -43,14 +43,19 @@ SERVER_INFO = {"name": "agentpay-guard", "version": "0.3.0"}
 TOOLS = [
     {
         "name": "search_products",
-        "description": "Search the merchant catalog before buying. Returns product_id, name, merchant, category and price in INR.",
+        "description": "Search the merchant catalog before buying. Returns product_id, name, merchant, category and price in INR sorted by price. Use max_price/min_price to respect the user's budget. If nothing matches the budget, share the buy_online_search_links instead of buying a mismatched product.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
                     "description": "Search keywords, e.g. 'headphones' or 'groceries'",
-                }
+                },
+                "max_price": {
+                    "type": "number",
+                    "description": "Maximum budget in INR, e.g. 500",
+                },
+                "min_price": {"type": "number", "description": "Minimum price in INR"},
             },
             "required": ["query"],
         },
@@ -169,6 +174,9 @@ def _execute(request_id: str) -> str:
 
 def tool_search(args: dict) -> str:
     query = str(args.get("query", ""))
+    max_price = args.get("max_price")
+    min_price = args.get("min_price")
+
     hits = [
         {
             "product_id": item.product.lower().replace(" ", "-").replace('"', ""),
@@ -179,11 +187,17 @@ def tool_search(args: dict) -> str:
         }
         for item in search_catalog(query)
     ]
+    if isinstance(max_price, (int, float)):
+        hits = [h for h in hits if h["price_inr"] <= max_price]
+    if isinstance(min_price, (int, float)):
+        hits = [h for h in hits if h["price_inr"] >= min_price]
+    hits.sort(key=lambda h: h["price_inr"])
+
     response: dict = {"results": hits[:8], "buy_online_search_links": shop_links(query)}
     if not hits:
         response["note"] = (
-            "Not in the AgentPay catalog. Share the buy_online_search_links with the user, "
-            "or pick the closest catalog product. Never invent a product_id."
+            "No catalog product matches this query and price range. Do NOT buy a mismatched product. "
+            "Share the buy_online_search_links with the user, or ask them to adjust the budget."
         )
     return json.dumps(response)
 
