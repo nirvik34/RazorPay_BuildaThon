@@ -1,7 +1,7 @@
 # Real AI shopping → Guard → Razorpay (MCP)
 
-This is the **live** integration: you chat about shopping in Claude Desktop (or any MCP
-client), the AI actually attempts a purchase, your phone gets an approval notification,
+This is the **live** integration: you chat about shopping in Claude (Desktop, web, or the
+Android app), the AI actually attempts a purchase, your phone gets an approval notification,
 and only your ACCEPT lets the Razorpay payment execute. Blocked purchases return the
 policy reason to the agent.
 
@@ -32,7 +32,40 @@ RAZORPAY_KEY_SECRET=xxxxxxxx
 Without keys, payments run in clearly-labelled simulated mode. With test keys, real
 Razorpay Orders are created via the API (test mode = no actual money moves).
 
-## 2. Connect Claude Desktop
+## 2. Connect Claude
+
+### A. Claude Android / web — remote MCP (Streamable HTTP)
+
+The stdio config above only works for Claude Desktop. For Claude's mobile/web apps you need a
+**remote MCP server** on a public URL:
+
+```bash
+# terminal 1 — Guard backend
+cd src/backend && ../../.venv/bin/uvicorn app.main:app --port 8000
+
+# terminal 2 — remote MCP server (Streamable HTTP)
+cd src/mcp && ../../.venv/bin/uvicorn remote_server:app --port 8002
+
+# terminal 3 — public tunnel
+ngrok http 8002          # or: cloudflared tunnel --url http://localhost:8002
+```
+
+Then in Claude (web or Android app): **Settings → Connectors → Add custom connector** and use:
+
+```
+https://<your-subdomain>.ngrok-free.app/mcp
+```
+
+Say **"buy me a keyboard under ₹10k"** in the chat. Claude calls `search_products` →
+`purchase` → your phone gets the approval notification → ACCEPT → real Razorpay order
+(test mode) → receipt lands back in the chat.
+
+Optional hardening: set `GUARD_MCP_TOKEN=<secret>` on the remote server and use
+`https://<subdomain>.ngrok-free.app/mcp` — requests without `Authorization: Bearer <secret>`
+get 401. (Claude sends no auth headers for unauthenticated connectors; use the token in the
+URL via a reverse-proxy rule, or rely on ngrok's random subdomain for the hackathon.)
+
+### B. Claude Desktop — stdio MCP
 
 Edit `~/Library/Application Support/Claude/claude_desktop_config.json`
 (Windows: `%APPDATA%\Claude\claude_desktop_config.json`):
@@ -74,13 +107,22 @@ Sony WH-1000XM5 · amazon
 
 ## 4. Other agents
 
-- **ChatGPT (Custom GPT / Actions):** the backend already serves an OpenAPI spec at
+- **ChatGPT (Custom GPT / Actions):** the backend serves an OpenAPI spec at
   `http://localhost:8000/openapi.json` — point a GPT Action at it (needs a public URL,
   e.g. ngrok) and the same endpoints drive the same flow.
 - **Grok / any agent:** anything that can POST JSON:
   `POST /agent/payment-request` → poll `GET /agent/payment-status/{id}` →
   `POST /guard/approvals/{id}/action` → `POST /guard/payments/execute`.
 - **Terminal:** `python src/agent/run_demo.py --mode all` drives the same backend.
+
+## Payment modes
+
+- **No keys** → simulated orders (labelled `SIMULATED` in receipts).
+- **Test keys** (`rzp_test_…`) → **real Razorpay Orders** created via the API; the order is
+  genuine and visible in your Razorpay dashboard, but no money moves until checkout completes
+  (test mode). Status shows `processing` until paid.
+- **Live keys** (`rzp_live_…`) → real money. Rotate any secret that has ever been pasted
+  into a chat or screenshot.
 
 ## How it stays safe (trust anchor = phone)
 
