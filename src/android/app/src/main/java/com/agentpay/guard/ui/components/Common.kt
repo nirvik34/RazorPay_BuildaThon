@@ -70,7 +70,7 @@ fun RiskScale(score: Int, modifier: Modifier = Modifier) {
         score < 75 -> 2
         else -> 3
     }
-    val colors = listOf(GuardColors.Success, GuardColors.Warning, GuardColors.Danger, Color(0xFFB42318))
+    val colors = listOf(GuardColors.Success, GuardColors.Warning, GuardColors.Danger, Color(0xFFB3261E))
     Column(modifier = modifier.fillMaxWidth()) {
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
             repeat(4) { i ->
@@ -101,7 +101,7 @@ fun EmptyState(title: String, body: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, GuardColors.Border, RoundedCornerShape(10.dp))
+            .border(1.dp, GuardColors.Border, RoundedCornerShape(6.dp))
             .background(MaterialTheme.colorScheme.surface)
             .padding(vertical = 40.dp, horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

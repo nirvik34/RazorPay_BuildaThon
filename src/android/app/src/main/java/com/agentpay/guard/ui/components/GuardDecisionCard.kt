@@ -1,6 +1,8 @@
 package com.agentpay.guard.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -43,40 +46,49 @@ fun GuardDecisionCard(
         record.isPendingApproval -> GuardColors.Warning
         else -> GuardColors.Success
     }
+    val (statusBg, statusFg, statusLabel) = when {
+        decision.decision == DecisionType.BLOCK -> Triple(GuardColors.DangerBg, GuardColors.DangerText, "BLOCKED BY POLICY")
+        record.isPendingApproval -> Triple(GuardColors.WarningBg, GuardColors.WarningText, "ACTION REQUIRED")
+        record.outcome == TransactionRecord.Outcome.DENIED -> Triple(GuardColors.DangerBg, GuardColors.DangerText, "REJECTED")
+        else -> Triple(GuardColors.SuccessBg, GuardColors.SuccessText, "APPROVED")
+    }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(6.dp))
+            .border(1.dp, GuardColors.Border, RoundedCornerShape(6.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .padding(start = 0.dp, top = 16.dp, bottom = 16.dp)
+            .padding(top = 14.dp, bottom = 16.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(borderColor)
-                .padding(vertical = 4.dp),
-            horizontalArrangement = Arrangement.Center
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            val label = when {
-                decision.decision == DecisionType.BLOCK -> "BLOCKED BY POLICY"
-                record.isPendingApproval -> "ACTION REQUIRED"
-                record.outcome == TransactionRecord.Outcome.DENIED -> "REJECTED"
-                else -> "APPROVED"
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(statusBg)
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(statusLabel, color = statusFg, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
             }
-            Text(label, color = MaterialTheme.colorScheme.surface, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text(record.request.requestId, style = MaterialTheme.typography.labelSmall, color = GuardColors.Muted)
         }
 
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
             Spacer(Modifier.height(12.dp))
-            Text(record.request.agentId, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(record.request.agentId, style = MaterialTheme.typography.labelSmall, color = GuardColors.Info)
 
             Spacer(Modifier.height(8.dp))
             Text(record.request.product, style = MaterialTheme.typography.titleMedium)
             Text(record.request.merchant.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             Spacer(Modifier.height(8.dp))
-            Text(formatINR(record.request.amount), fontSize = 30.sp, fontWeight = FontWeight.Bold)
+            Text(formatINR(record.request.amount), fontSize = 30.sp, fontWeight = FontWeight.Bold, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
@@ -131,17 +143,22 @@ fun GuardDecisionCard(
 
             if (onAccept != null && onReject != null && record.isPendingApproval) {
                 Spacer(Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                    Button(
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
                         onClick = onReject,
-                        colors = ButtonDefaults.buttonColors(containerColor = GuardColors.Danger),
-                        modifier = Modifier.weight(1f).height(48.dp)
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = GuardColors.DangerText
+                        ),
+                        border = BorderStroke(1.dp, GuardColors.DangerBorder),
+                        shape = RoundedCornerShape(4.dp),
+                        modifier = Modifier.weight(1f).height(46.dp)
                     ) { Text("REJECT", fontWeight = FontWeight.Bold) }
                     Button(
                         onClick = onAccept,
-                        colors = ButtonDefaults.buttonColors(containerColor = GuardColors.Success),
-                        modifier = Modifier.weight(1f).height(48.dp)
-                    ) { Text("ACCEPT", fontWeight = FontWeight.Bold) }
+                        colors = ButtonDefaults.buttonColors(containerColor = GuardColors.Brand),
+                        shape = RoundedCornerShape(4.dp),
+                        modifier = Modifier.weight(1f).height(46.dp)
+                    ) { Text("ACCEPT & PAY", fontWeight = FontWeight.Bold) }
                 }
             }
         }

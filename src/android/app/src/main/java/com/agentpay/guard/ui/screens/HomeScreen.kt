@@ -88,7 +88,7 @@ fun HomeScreen(viewModel: GuardViewModel, onOpenApprovals: () -> Unit, onOpenSet
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(6.dp))
                         .background(GuardColors.WarningBg)
                         .padding(14.dp)
                 ) {
@@ -106,7 +106,7 @@ fun HomeScreen(viewModel: GuardViewModel, onOpenApprovals: () -> Unit, onOpenSet
         item { SectionTitle("ACTIVE AGENTS") }
         items(agents.filter { it.status == com.agentpay.guard.core.model.AgentStatus.ACTIVE }) { agent ->
             Row(
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surface).padding(14.dp),
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surface).padding(14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
             ) {
@@ -130,7 +130,7 @@ private fun StatCard(label: String, value: String, modifier: Modifier = Modifier
     }
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(6.dp))
             .background(MaterialTheme.colorScheme.surface)
             .padding(14.dp)
     ) {
@@ -139,7 +139,7 @@ private fun StatCard(label: String, value: String, modifier: Modifier = Modifier
             Spacer(Modifier.height(8.dp))
         }
         Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
     }
 }
 
@@ -153,7 +153,7 @@ private fun ActivityRow(record: TransactionRecord) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(6.dp))
             .background(MaterialTheme.colorScheme.surface)
             .padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,

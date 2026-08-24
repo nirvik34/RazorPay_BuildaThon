@@ -63,7 +63,7 @@ private fun ActivityCard(record: TransactionRecord) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(6.dp))
             .background(MaterialTheme.colorScheme.surface)
     ) {
         Box(Modifier.width(4.dp).fillMaxHeight().background(accent))
@@ -93,7 +93,7 @@ private fun ActivityCard(record: TransactionRecord) {
                 }
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(formatINR(record.request.amount), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(formatINR(record.request.amount), fontWeight = FontWeight.Bold, fontSize = 15.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                 StatusPill(record)
             }
         }
