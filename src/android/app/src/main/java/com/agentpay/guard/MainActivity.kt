@@ -49,11 +49,17 @@ class MainActivity : ComponentActivity() {
         ) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+        com.agentpay.guard.sync.LiveSync.start(this)
         setContent {
             AgentPayTheme {
                 GuardApp()
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        com.agentpay.guard.sync.LiveSync.stop()
     }
 }
 

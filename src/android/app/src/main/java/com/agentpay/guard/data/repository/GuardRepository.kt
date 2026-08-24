@@ -158,6 +158,9 @@ class GuardRepository(
     suspend fun requestById(requestId: String): PaymentRequest? =
         withContext(Dispatchers.IO) { requestsDao.byId(requestId)?.toModel() }
 
+    suspend fun hasRequest(requestId: String): Boolean =
+        withContext(Dispatchers.IO) { requestsDao.byId(requestId) != null }
+
     suspend fun pendingRequests(history: List<TransactionRecord>): List<TransactionRecord> =
         history.filter { it.isPendingApproval }
 

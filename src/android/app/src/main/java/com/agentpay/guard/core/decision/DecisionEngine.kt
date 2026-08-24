@@ -10,6 +10,7 @@ import com.agentpay.guard.core.model.IntentRecord
 import com.agentpay.guard.core.model.PaymentRequest
 import com.agentpay.guard.core.model.Policy
 import com.agentpay.guard.core.model.ReasonCode
+import com.agentpay.guard.core.model.TransactionRecord
 import com.agentpay.guard.core.risk.RiskEngine
 import com.agentpay.guard.core.policy.PolicyEngine
 

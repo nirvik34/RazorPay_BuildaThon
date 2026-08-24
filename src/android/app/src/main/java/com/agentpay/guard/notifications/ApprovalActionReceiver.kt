@@ -22,6 +22,7 @@ class ApprovalActionReceiver : BroadcastReceiver() {
                 val request = repository.requestById(requestId)
                 if (request != null) {
                     repository.decide(request, accept)
+                    com.agentpay.guard.sync.LiveSync.pushDecision(appContext, requestId, accept)
                 }
                 NotificationHelper.cancel(appContext, requestId)
             } finally {

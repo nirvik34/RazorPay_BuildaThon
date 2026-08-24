@@ -256,3 +256,36 @@ async def payment_request(
         **decision,
         "approvalRequired": decision["decision"] == "USER_APPROVAL",
     }
+
+
+@router.get("/payment-status/{request_id}")
+async def payment_status(request_id: str) -> dict:
+    """Poll an agent request: decision, user resolution, authorization, payment."""
+    state = store.snapshot()
+    request = state["requests"].get(request_id)
+    if not request:
+        raise HTTPException(status_code=404, detail={"code": "REQUEST_NOT_FOUND"})
+
+    resolution = next(
+        (r for r in state.get("resolutions", []) if r["requestId"] == request_id), None
+    )
+    decision = state["decisions"].get(request_id)
+    auth_id = decision.get("authorizationId") if decision else None
+    authorization = state["authorizations"].get(auth_id) if auth_id else None
+    payment = next(
+        (
+            p
+            for p in state.get("payments", {}).values()
+            if p.get("requestId") == request_id
+        ),
+        None,
+    )
+
+    return {
+        "requestId": request_id,
+        "request": request,
+        "decision": decision,
+        "resolution": resolution,
+        "authorization": authorization,
+        "payment": payment,
+    }

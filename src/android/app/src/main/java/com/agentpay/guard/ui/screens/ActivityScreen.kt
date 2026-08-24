@@ -83,8 +83,8 @@ private fun ActivityCard(record: TransactionRecord) {
                 if (reason != null) {
                     Text(reason, fontSize = 12.sp, color = com.agentpay.guard.ui.theme.GuardColors.DangerText, fontWeight = FontWeight.Medium)
                 }
-                when (record.decision.decision) {
-                    com.agentpay.guard.core.model.DecisionType.BLOCK ->
+                when {
+                    record.decision.decision == com.agentpay.guard.core.model.DecisionType.BLOCK ->
                         Text("Blocked by policy — no approval requested", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     record.outcome == TransactionRecord.Outcome.DENIED ->
                         Text("User rejected · Authorization denied", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

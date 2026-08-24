@@ -57,6 +57,11 @@ class GuardViewModel(application: Application) : AndroidViewModel(application) {
     fun decide(record: TransactionRecord, accept: Boolean) {
         viewModelScope.launch {
             repository.decide(record.request, accept)
+            com.agentpay.guard.sync.LiveSync.pushDecision(
+                getApplication(),
+                record.request.requestId,
+                accept
+            )
             refresh()
         }
     }

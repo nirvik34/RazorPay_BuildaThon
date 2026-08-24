@@ -73,7 +73,7 @@ object NotificationHelper {
         manager.notify(notificationId, notification)
     }
 
-    private fun action(context: Context, id: Int, requestId: String, accept: Boolean, label: String): Notification.Action {
+    private fun action(context: Context, id: Int, requestId: String, accept: Boolean, label: String): NotificationCompat.Action {
         val intent = Intent(context, ApprovalActionReceiver::class.java).apply {
             this.action = if (accept) ACTION_ACCEPT else ACTION_REJECT
             putExtra(EXTRA_REQUEST_ID, requestId)
@@ -84,7 +84,7 @@ object NotificationHelper {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        return Notification.Action.Builder(null, label, pi).build()
+        return NotificationCompat.Action.Builder(0, label, pi).build()
     }
 
     fun cancel(context: Context, requestId: String) {
