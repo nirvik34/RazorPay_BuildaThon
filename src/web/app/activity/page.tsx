@@ -10,10 +10,10 @@ const FILTERS = ["ALL", "APPROVED", "PENDING", "BLOCKED"] as const;
 type Filter = (typeof FILTERS)[number];
 
 export default function ActivityPage() {
-  const { state } = useGuard();
+  const { transactions } = useGuard();
   const [filter, setFilter] = useState<Filter>("ALL");
 
-  const records = [...state.transactions]
+  const records = [...transactions]
     .filter((rec) => {
       if (filter === "ALL") return true;
       if (filter === "BLOCKED") return rec.decision.decision === "BLOCK";

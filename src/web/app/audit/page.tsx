@@ -7,10 +7,10 @@ import { ActivityTable } from "@/components/activity-table";
 import { relativeDay } from "@/lib/format";
 
 export default function AuditPage() {
-  const { state } = useGuard();
+  const { transactions } = useGuard();
 
   const groups = useMemo(() => {
-    const sorted = [...state.transactions].sort(
+    const sorted = [...transactions].sort(
       (a, b) => new Date(b.request.timestamp).getTime() - new Date(a.request.timestamp).getTime()
     );
     const map = new Map<string, typeof sorted>();
@@ -21,7 +21,7 @@ export default function AuditPage() {
       map.set(key, list);
     }
     return Array.from(map.entries());
-  }, [state.transactions]);
+  }, [transactions]);
 
   return (
     <div>

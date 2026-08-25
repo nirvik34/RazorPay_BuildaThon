@@ -17,7 +17,7 @@ export function GuardDecisionCard({
   onReject
 }: {
   record: TransactionRecord;
-  agentName: string;
+  agentName?: string;
   intent?: Intent;
   risk?: RiskAssessment;
   onAccept?: () => void;
@@ -53,7 +53,7 @@ export function GuardDecisionCard({
             AI
           </div>
           <div>
-            <div className="text-sm font-semibold text-foreground">{agentName}</div>
+            <div className="text-sm font-semibold text-foreground">{agentName ?? record.request.agentId}</div>
             <div className="font-mono text-[11px] text-muted">{formatTime(request.timestamp)}</div>
           </div>
         </div>

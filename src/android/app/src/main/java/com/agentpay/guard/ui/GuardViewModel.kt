@@ -54,6 +54,40 @@ class GuardViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Sends a REAL payment request through the backend Guard engine. */
+    fun submitRemote(request: PaymentRequest, onDone: (String) -> Unit = {}) {
+        viewModelScope.launch {
+            val api = GuardGraph.api(getApplication())
+            if (api == null) {
+                onDone("Backend not configured")
+                return@launch
+            }
+            try {
+                val response = api.submitPaymentRequest(
+                    mapOf(
+                        "agentId" to request.agentId,
+                        "merchant" to request.merchant,
+                        "product" to request.product,
+                        "amount" to request.amount,
+                        "currency" to request.currency,
+                        "category" to request.category,
+                        "sessionId" to request.sessionId,
+                    )
+                )
+                onDone(
+                    if (response.isSuccessful) {
+                        "Backend verdict: ${response.body()?.get("decision")} — LiveSync surfaces it locally"
+                    } else {
+                        "Backend rejected: HTTP ${response.code()}"
+                    }
+                )
+            } catch (e: Exception) {
+                onDone("Backend unreachable: ${e.message}")
+            }
+            refresh()
+        }
+    }
+
     fun decide(record: TransactionRecord, accept: Boolean) {
         viewModelScope.launch {
             repository.decide(record.request, accept)

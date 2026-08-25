@@ -15,20 +15,20 @@ import { Snowflake } from "lucide-react";
 export default function AgentDetailPage() {
   const params = useParams<{ id: string }>();
   const agentId = params.id;
-  const { state, freezeAgent, unfreezeAgent, revokeAgent } = useGuard();
+  const { agents, transactions: allTxns, policy, setAgentStatus } = useGuard();
   const toast = useToast();
   const [confirmFreeze, setConfirmFreeze] = useState(false);
   const [confirmRevoke, setConfirmRevoke] = useState(false);
 
-  const agent = state.agents.find((a) => a.agentId === agentId);
-  const policy = state.policies.find((p) => p.policyId === agent?.policyId);
+  const agent = agents.find((a) => a.agentId === agentId);
+  
 
   const history = useMemo(
     () =>
-      state.transactions
+      allTxns
         .filter((r) => r.request.agentId === agentId)
         .sort((a, b) => new Date(b.request.timestamp).getTime() - new Date(a.request.timestamp).getTime()),
-    [state.transactions, agentId]
+    [allTxns, agentId]
   );
 
   if (!agent) {
@@ -86,7 +86,7 @@ export default function AgentDetailPage() {
 
       <div className="mt-6 flex gap-3">
         {agent.status === "FROZEN" ? (
-          <Button variant="success" onClick={() => { unfreezeAgent(agent.agentId); toast.push("info", "Agent unfrozen"); }}>
+          <Button variant="success" onClick={() => { setAgentStatus(agent.agentId, "ACTIVE"); toast.push("info", "Agent unfrozen"); }}>
             UNFREEZE AGENT
           </Button>
         ) : (
@@ -112,7 +112,7 @@ export default function AgentDetailPage() {
           destructive
           onCancel={() => setConfirmFreeze(false)}
           onConfirm={() => {
-            freezeAgent(agent.agentId);
+            setAgentStatus(agent.agentId, "FROZEN");
             setConfirmFreeze(false);
             toast.push("danger", "✓ Agent frozen on this device");
           }}
@@ -126,7 +126,7 @@ export default function AgentDetailPage() {
           destructive
           onCancel={() => setConfirmRevoke(false)}
           onConfirm={() => {
-            revokeAgent(agent.agentId);
+            setAgentStatus(agent.agentId, "REVOKED");
             setConfirmRevoke(false);
             toast.push("danger", "Agent access revoked");
           }}

@@ -127,6 +127,14 @@ export interface TransactionRecord {
   authorization?: Authorization;
 }
 
+export function isPendingApproval(rec: TransactionRecord): boolean {
+  return (
+    rec.decision.decision === "USER_APPROVAL" &&
+    !rec.authorization &&
+    (rec.outcome === "NOT_ATTEMPTED" || rec.outcome === "PROCESSING")
+  );
+}
+
 export interface AuditEvent {
   eventId: string;
   requestId: string;

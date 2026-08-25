@@ -50,32 +50,29 @@ fun SettingsScreen(viewModel: GuardViewModel) {
         }
         item {
             DemoButton("RUN NORMAL PURCHASE", GuardColors.Brand) {
-                viewModel.submit(DemoScenarios.normal())
-                lastResult = "Submitted: Sony WH-1000XM5 (expect approval prompt)"
+                viewModel.submitRemote(DemoScenarios.normal()) { lastResult = it }
             }
         }
         item {
             DemoButton("RUN OVER-LIMIT ATTACK", GuardColors.Danger) {
-                viewModel.submit(DemoScenarios.overLimit())
-                lastResult = "Submitted: MacBook ₹42,000 vs ₹20,000 limit (expect auto-block)"
+                viewModel.submitRemote(DemoScenarios.overLimit()) { lastResult = it }
             }
         }
         item {
             DemoButton("RUN INTENT MISMATCH", GuardColors.Danger) {
-                viewModel.submit(DemoScenarios.intentMismatch())
-                lastResult = "Submitted: gift card against 'monitor' intent (expect block)"
+                viewModel.submitRemote(DemoScenarios.intentMismatch()) { lastResult = it }
             }
         }
         item {
             DemoButton("RUN SPLITTING ATTACK", GuardColors.Danger) {
-                for (step in 0..2) viewModel.submit(DemoScenarios.splitting(step))
-                lastResult = "Submitted: 3× ~₹9.8K same session (expect circumvention on 3rd)"
+                for (step in 0..2) viewModel.submitRemote(DemoScenarios.splitting(step)) { lastResult = it }
+                lastResult = "Splitting sequence sent to backend (expect circumvention on 3rd)"
             }
         }
         item {
             DemoButton("RUN COMPROMISED BURST", GuardColors.Danger) {
-                for (i in 0..9) viewModel.submit(DemoScenarios.compromisedBurst(i))
-                lastResult = "Submitted: 10 rapid requests (expect velocity anomaly)"
+                for (i in 0..9) viewModel.submitRemote(DemoScenarios.compromisedBurst(i)) { lastResult = it }
+                lastResult = "Burst sent to backend (expect velocity anomaly on Risk page)"
             }
         }
         item {

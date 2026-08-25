@@ -8,8 +8,8 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 
 export default function AgentsPage() {
-  const { state } = useGuard();
-  const policy = state.policies[0];
+  const { agents, policy, transactions } = useGuard();
+  
 
   return (
     <div>
@@ -26,12 +26,12 @@ export default function AgentsPage() {
       />
 
       <div className="grid max-w-5xl grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {state.agents.map((agent) => (
+        {agents.map((agent) => (
           <AgentCard
             key={agent.agentId}
             agent={agent}
-            policy={state.policies.find((p) => p.policyId === agent.policyId)}
-            transactions={state.transactions}
+            policy={policy}
+            transactions={transactions}
           />
         ))}
         <div className="rounded-md border border-dashed border-border bg-white p-5 text-[13px] text-muted">

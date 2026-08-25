@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useGuard } from "@/lib/store";
-import { runSimulation, type SimulationReport } from "@/lib/simulation";
 import { PageHeader, StatCard } from "@/components/stat-card";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,17 +25,15 @@ const REASON_LABELS: Record<string, string> = {
 const STAGES = ["Agent request", "Authority", "Policy", "Risk", "Decision"];
 
 export default function SimulationPage() {
-  const { state } = useGuard();
+  const { policy, runSimulation } = useGuard();
   const [report, setReport] = useState<SimulationReport | null>(null);
   const [running, setRunning] = useState(false);
 
-  const run = () => {
+  const run = async () => {
     setRunning(true);
-    window.setTimeout(() => {
-      const result = runSimulation(10000, 42, state.policies[0]);
-      setReport(result);
-      setRunning(false);
-    }, 350);
+    const result = await runSimulation(10000, 42);
+    setReport(result);
+    setRunning(false);
   };
 
   const chartData = report
@@ -52,7 +49,7 @@ export default function SimulationPage() {
         title="Policy simulation"
         description="Test your policy against 10,000 synthetic agent requests before trusting it with real money."
         action={
-          <Button variant="brand" size="lg" onClick={run} disabled={running}>
+          <Button variant="brand" size="lg" onClick={() => run()} disabled={running}>
             <FlaskConical className="h-4 w-4" /> {running ? "EVALUATING…" : "RUN SIMULATION"}
           </Button>
         }

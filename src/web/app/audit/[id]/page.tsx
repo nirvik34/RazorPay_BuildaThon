@@ -2,6 +2,8 @@
 
 import { useParams } from "next/navigation";
 import { useGuard } from "@/lib/store";
+import { useEffect, useState } from "react";
+import type { AuditEvent } from "@/lib/types";
 import { Card, CardHeader } from "@/components/ui/card";
 import { StatusPill } from "@/components/status-pill";
 import { formatClock, formatDay, formatINR } from "@/lib/format";
@@ -9,11 +11,16 @@ import { formatClock, formatDay, formatINR } from "@/lib/format";
 export default function AuditDetailPage() {
   const params = useParams<{ id: string }>();
   const requestId = params.id;
-  const { state } = useGuard();
+  const { transactions, agents, getAudit } = useGuard();
 
-  const record = state.transactions.find((r) => r.request.requestId === requestId);
-  const events = (state.audit[requestId] ?? []).slice().sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
-  const agent = state.agents.find((a) => a.agentId === record?.request.agentId);
+  const record = transactions.find((r) => r.request.requestId === requestId);
+  const [events, setEvents] = useState<AuditEvent[]>([]);
+  useEffect(() => {
+    getAudit(requestId).then((rows) =>
+      setEvents(rows.slice().sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime()))
+    );
+  }, [requestId, getAudit]);
+  const agent = agents.find((a) => a.agentId === record?.request.agentId);
 
   if (!record) {
     return (
@@ -52,9 +59,7 @@ export default function AuditDetailPage() {
         {record.decision.decision === "USER_APPROVAL" && (
           <div className="border-t border-border px-5 py-4">
             {record.request.intentId && (
-              <p className="text-[13px] italic text-muted">
-                Intent: “{state.intents.find((i) => i.intentId === record.request.intentId)?.goal}”
-              </p>
+              <p className="font-mono text-[13px] text-muted">intent: {record.request.intentId}</p>
             )}
             <p className="mt-1 text-[12px] font-mono text-muted">
               intent match {record.decision.intentScore} · circumvention {record.decision.circumventionScore}

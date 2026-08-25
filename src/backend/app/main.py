@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import routes_agent, routes_data, routes_guard, routes_simulation
+from .api import routes_agent, routes_data, routes_guard, routes_mcp, routes_simulation
 from .config import settings
 from .ws import CONNECTIONS
 from .state import store
@@ -32,6 +32,7 @@ app.include_router(routes_agent.router)
 app.include_router(routes_guard.router)
 app.include_router(routes_data.router)
 app.include_router(routes_simulation.router)
+app.include_router(routes_mcp.router)
 
 
 @app.get("/health")

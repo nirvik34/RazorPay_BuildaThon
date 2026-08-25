@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { useGuard } from "@/lib/store";
 import { PageHeader } from "@/components/stat-card";
@@ -21,11 +21,25 @@ const ALL_CATEGORIES: Category[] = [
 ];
 
 export default function PoliciesPage() {
-  const { state, savePolicy } = useGuard();
+  const { policy: current, savePolicy } = useGuard();
   const toast = useToast();
-  const current = state.policies[0];
-  const [draft, setDraft] = useState<Policy>(current);
+  const [draft, setDraft] = useState<Policy | null>(current);
   const [showJson, setShowJson] = useState(false);
+
+  useEffect(() => {
+    if (current && !draft) setDraft(current);
+  }, [current, draft]);
+
+  if (!draft) {
+    return (
+      <div>
+        <PageHeader title="Policies" />
+        <p className="text-sm text-muted">
+          {current === null ? "Loading policy from backend…" : "Backend offline — start it to manage policies."}
+        </p>
+      </div>
+    );
+  }
 
   const toggleCategory = (cat: Category) => {
     setDraft((prev) => {
@@ -115,7 +129,7 @@ export default function PoliciesPage() {
           size="lg"
           className="shadow-medium"
           onClick={() => {
-            savePolicy({ ...draft, version: draft.version + 1 });
+            savePolicy(draft);
             toast.push("success", `✓ Policy saved · active on this device`);
           }}
         >

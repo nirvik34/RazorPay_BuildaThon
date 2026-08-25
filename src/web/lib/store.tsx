@@ -1,302 +1,247 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from "react";
-import type {
-  Agent,
-  AnomalyEvent,
-  AuditEvent,
-  Category,
-  PaymentRequest,
-  Policy,
-  SpendPoint,
-  TransactionRecord
-} from "./types";
-import { auditChainFor, evaluateFull } from "./engine";
-import { buildSeed } from "./seed";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import type { Agent, AuditEvent, GuardDecision, PaymentRequest, Policy, TransactionRecord } from "./types";
 
-const STORAGE_KEY = "agentpay-guard-v2";
+const STORAGE_KEY = "agentpay-api-base";
+const DEFAULT_API = "http://localhost:8000";
 
-export interface GuardState {
-  agents: Agent[];
-  policies: Policy[];
-  intents: import("./types").Intent[];
-  transactions: TransactionRecord[];
-  audit: Record<string, AuditEvent[]>;
-  anomalies: AnomalyEvent[];
-  spendSeries: SpendPoint[];
-  apiBase: string;
+export interface PendingItem {
+  request: PaymentRequest;
+  decision: GuardDecision;
 }
 
-type Action =
-  | { type: "hydrate"; state: GuardState }
-  | { type: "reset" }
-  | { type: "decide"; requestId: string; accept: boolean }
-  | { type: "setAgentStatus"; agentId: string; status: Agent["status"] }
-  | { type: "savePolicy"; policy: Policy }
-  | { type: "ingest"; record: TransactionRecord }
-  | { type: "appendAudit"; requestId: string; events: AuditEvent[] }
-  | { type: "addAnomaly"; anomaly: AnomalyEvent }
-  | { type: "dismissAnomaly"; anomalyId: string }
-  | { type: "setRiskState"; agentId: string; riskState: Agent["riskState"] }
-  | { type: "setApiBase"; url: string };
-
-function freshState(): GuardState {
-  const s = buildSeed();
-  return { ...s, apiBase: "http://localhost:8000" };
-}
-
-function reducer(state: GuardState, action: Action): GuardState {
-  switch (action.type) {
-    case "hydrate":
-      return action.state;
-    case "reset":
-      return freshState();
-    case "decide": {
-      const now = new Date().toISOString();
-      const rec = state.transactions.find((r) => r.request.requestId === action.requestId);
-      if (!rec || rec.userActionAt) return state;
-      let transactions = state.transactions;
-      let audit = state.audit;
-      if (action.accept) {
-        const authorizationId = `auth_${Math.random().toString(16).slice(2, 6)}`;
-        const authorization = {
-          authorizationId,
-          requestId: rec.request.requestId,
-          agentId: rec.request.agentId,
-          merchant: rec.request.merchant,
-          product: rec.request.product,
-          amount: rec.request.amount,
-          currency: "INR" as const,
-          intentId: rec.request.intentId,
-          expiresAt: new Date(Date.now() + 300000).toISOString(),
-          status: "USED" as const
-        };
-        transactions = state.transactions.map((r) =>
-          r.request.requestId === action.requestId
-            ? { ...r, outcome: "CAPTURED", userActionAt: now, authorization }
-            : r
-        );
-        audit = appendAuditEvents(state.audit, action.requestId, [
-          ["User accepted"],
-          ["Authorization issued", authorizationId],
-          ["Payment initiated", "Razorpay order created"],
-          ["Payment captured", authorizationId]
-        ], now);
-      } else {
-        transactions = state.transactions.map((r) =>
-          r.request.requestId === action.requestId ? { ...r, outcome: "DENIED", userActionAt: now } : r
-        );
-        audit = appendAuditEvents(state.audit, action.requestId, [
-          ["User rejected transaction"],
-          ["Authorization denied"],
-          ["Agent informed", "Structured denial returned"]
-        ], now);
-      }
-      return { ...state, transactions, audit };
-    }
-    case "setAgentStatus":
-      return {
-        ...state,
-        agents: state.agents.map((a) => (a.agentId === action.agentId ? { ...a, status: action.status } : a)),
-        anomalies:
-          action.status !== "ACTIVE"
-            ? state.anomalies.map((an) => (an.agentId === action.agentId ? { ...an, dismissed: true } : an))
-            : state.anomalies
-      };
-    case "setRiskState":
-      return {
-        ...state,
-        agents: state.agents.map((a) => (a.agentId === action.agentId ? { ...a, riskState: action.riskState } : a))
-      };
-    case "savePolicy": {
-      const exists = state.policies.some((p) => p.policyId === action.policy.policyId);
-      const policies = exists
-        ? state.policies.map((p) => (p.policyId === action.policy.policyId ? action.policy : p))
-        : [...state.policies, action.policy];
-      return { ...state, policies };
-    }
-    case "ingest":
-      return { ...state, transactions: [...state.transactions, action.record] };
-    case "appendAudit": {
-      const existing = state.audit[action.requestId] ?? [];
-      return {
-        ...state,
-        audit: { ...state.audit, [action.requestId]: [...existing, ...action.events] }
-      };
-    }
-    case "addAnomaly":
-      return { ...state, anomalies: [action.anomaly, ...state.anomalies] };
-    case "dismissAnomaly":
-      return { ...state, anomalies: state.anomalies.map((a) => (a.anomalyId === action.anomalyId ? { ...a, dismissed: true } : a)) };
-    case "setApiBase":
-      return { ...state, apiBase: action.url };
-    default:
-      return state;
-  }
-}
-
-function appendAuditEvents(
-  audit: Record<string, AuditEvent[]>,
-  requestId: string,
-  rows: Array<[string] | [string, string?]>,
-  at: string
-): Record<string, AuditEvent[]> {
-  const existing = audit[requestId] ?? [];
-  const additions: AuditEvent[] = rows.map(([label, detail]) => ({
-    eventId: `evt_${Math.random().toString(16).slice(2, 10)}`,
-    requestId,
-    at,
-    label,
-    detail
-  }));
-  return { ...audit, [requestId]: [...existing, ...additions] };
-}
-
-export function newRequestId(): string {
-  return `req_${Math.random().toString(16).slice(2, 8)}`;
-}
-
-interface IngestInput {
-  agentId: string;
-  product: string;
-  merchant: string;
-  amount: number;
-  category: Category;
-  intentId?: string | null;
-  sessionId?: string;
+export interface SimulationReport {
+  total: number;
+  allowed: number;
+  approvalRequired: number;
+  blocked: number;
+  byReason: Record<string, number>;
+  preventedAmount: number;
+  stages: { received: number; authority: number; policy: number; risk: number; decided: number };
 }
 
 interface GuardContextValue {
-  state: GuardState;
-  decide: (requestId: string, accept: boolean) => void;
-  freezeAgent: (agentId: string) => void;
-  unfreezeAgent: (agentId: string) => void;
-  revokeAgent: (agentId: string) => void;
-  savePolicy: (policy: Policy) => void;
-  ingestRequest: (input: IngestInput) => TransactionRecord | null;
-  dismissAnomaly: (anomalyId: string) => void;
-  resetDemo: () => void;
+  connected: boolean;
+  loading: boolean;
+  apiBase: string;
   setApiBase: (url: string) => void;
+  agents: Agent[];
+  policy: Policy | null;
+  transactions: TransactionRecord[];
+  pending: PendingItem[];
+  refresh: () => Promise<void>;
+  decide: (requestId: string, accept: boolean) => Promise<boolean>;
+  setAgentStatus: (agentId: string, status: Agent["status"]) => Promise<void>;
+  savePolicy: (policy: Policy) => Promise<void>;
+  runSimulation: (count: number, seed: number) => Promise<SimulationReport | null>;
+  sendAgentRequest: (body: Record<string, unknown>) => Promise<GuardDecision | null>;
+  getAudit: (requestId: string) => Promise<AuditEvent[]>;
 }
 
 const GuardContext = createContext<GuardContextValue | null>(null);
 
 export function GuardProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, undefined, freshState);
-  const loaded = useRef(false);
+  const [apiBase, setApiBaseState] = useState(DEFAULT_API);
+  const [connected, setConnected] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [policy, setPolicy] = useState<Policy | null>(null);
+  const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
+  const [pending, setPending] = useState<PendingItem[]>([]);
+  const apiBaseRef = useRef(apiBase);
+  apiBaseRef.current = apiBase;
 
   useEffect(() => {
-    if (loaded.current) return;
-    loaded.current = true;
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) dispatch({ type: "hydrate", state: JSON.parse(raw) as GuardState });
+      const saved = window.localStorage.getItem(STORAGE_KEY);
+      if (saved) setApiBaseState(saved);
     } catch {
       void 0;
     }
   }, []);
 
-  useEffect(() => {
+  const setApiBase = useCallback((url: string) => {
+    setApiBaseState(url);
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      window.localStorage.setItem(STORAGE_KEY, url);
     } catch {
       void 0;
     }
-  }, [state]);
+  }, []);
 
-  const ingestRequest = useCallback(
-    (input: IngestInput): TransactionRecord | null => {
-      const agent = state.agents.find((a) => a.agentId === input.agentId);
-      const policy = state.policies.find((p) => p.policyId === (agent?.policyId ?? "pol_default"));
-      if (!agent || !policy) return null;
-      const request: PaymentRequest = {
-        requestId: newRequestId(),
-        agentId: input.agentId,
-        intentId: input.intentId ?? null,
-        merchant: input.merchant.toLowerCase(),
-        product: input.product,
-        amount: input.amount,
-        currency: "INR",
-        category: input.category,
-        sessionId: input.sessionId ?? `sess_${Math.random().toString(16).slice(2, 8)}`,
-        timestamp: new Date().toISOString()
-      };
-      const evaluation = evaluateFull({
-        request,
-        agent,
-        policy,
-        history: state.transactions,
-        intents: state.intents,
-        now: new Date()
-      });
-      const record: TransactionRecord = {
-        request,
-        decision: evaluation.decision,
-        outcome: "NOT_ATTEMPTED",
-        decidedBy: evaluation.decision.decision === "BLOCK" ? "policy" : "user"
-      };
-      dispatch({ type: "ingest", record });
-      const chain: AuditEvent[] = auditChainFor(record).map((e, idx) => ({
-        eventId: `evt_${request.requestId}_${idx}`,
-        requestId: request.requestId,
-        at: e.at,
-        label: e.label,
-        detail: e.detail
-      }));
-      dispatch({ type: "appendAudit", requestId: request.requestId, events: chain });
+  const refresh = useCallback(async () => {
+    const base = apiBaseRef.current.replace(/\/$/, "");
+    try {
+      const [agentsRes, policiesRes, txnsRes, pendingRes] = await Promise.all([
+        fetch(`${base}/agents`, { signal: AbortSignal.timeout(4000) }),
+        fetch(`${base}/policies`, { signal: AbortSignal.timeout(4000) }),
+        fetch(`${base}/transactions`, { signal: AbortSignal.timeout(4000) }),
+        fetch(`${base}/guard/pending`, { signal: AbortSignal.timeout(4000) }),
+      ]);
+      if (!agentsRes.ok || !txnsRes.ok) throw new Error("bad status");
+      const agentsData = await agentsRes.json();
+      const policiesData = await policiesRes.json();
+      const txnsData = await txnsRes.json();
+      const pendingData = pendingRes.ok ? await pendingRes.json() : [];
 
-      const cutoff = Date.now() - 600000;
-      const recentCount =
-        state.transactions.filter((r) => r.request.agentId === input.agentId && new Date(r.request.timestamp).getTime() >= cutoff).length + 1;
-      if (recentCount >= 6 && !state.anomalies.some((a) => a.agentId === input.agentId && !a.dismissed)) {
-        const observedAmount = state.transactions
-          .filter((r) => r.request.agentId === input.agentId && new Date(r.request.timestamp).getTime() >= cutoff)
-          .reduce((sum, r) => sum + r.request.amount, request.amount);
-        dispatch({
-          type: "addAnomaly",
-          anomaly: {
-            anomalyId: `anom_${Math.random().toString(16).slice(2, 6)}`,
-            agentId: input.agentId,
-            type: "CRITICAL_ANOMALY",
-            observedTxns: recentCount,
-            observedMinutes: 10,
-            observedAmount,
-            baselineTxnsPerDayMin: 5,
-            baselineTxnsPerDayMax: 8,
-            signals: ["High transaction velocity", "New merchants", "Unusual spending time", "Category deviation"],
-            recommendation: "FREEZE_AGENT",
-            createdAt: new Date().toISOString(),
-            dismissed: false
-          }
-        });
-        dispatch({ type: "setRiskState", agentId: input.agentId, riskState: "ELEVATED" });
+      setAgents(agentsData.agents ?? []);
+      setPolicy(policiesData.policies?.[0] ?? null);
+      setTransactions(
+        (txnsData.transactions ?? []).map((t: Record<string, unknown>) => ({
+          request: t.request,
+          decision: t.decision,
+          outcome: t.outcome ?? "NOT_ATTEMPTED",
+          decidedBy:
+            t.decision && (t.decision as GuardDecision).decision === "BLOCK" ? "policy" : "user",
+          authorization: t.authorization,
+        })) as TransactionRecord[]
+      );
+      setPending(pendingData ?? []);
+      setConnected(true);
+    } catch {
+      setConnected(false);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    const id = window.setInterval(refresh, 3000);
+    return () => window.clearInterval(id);
+  }, [refresh, apiBase]);
+
+  const post = useCallback(async (path: string, body?: unknown) => {
+    const base = apiBaseRef.current.replace(/\/$/, "");
+    const res = await fetch(`${base}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
+    return res.json();
+  }, []);
+
+  const decide = useCallback(
+    async (requestId: string, accept: boolean) => {
+      try {
+        await post(`/guard/approvals/${requestId}/action`, { action: accept ? "accept" : "reject" });
+        await refresh();
+        return true;
+      } catch {
+        return false;
       }
-      return record;
     },
-    [state]
+    [post, refresh]
   );
+
+  const setAgentStatus = useCallback(
+    async (agentId: string, status: Agent["status"]) => {
+      try {
+        await post(`/guard/agents/${agentId}/${status.toLowerCase()}`);
+        await refresh();
+      } catch {
+        void 0;
+      }
+    },
+    [post, refresh]
+  );
+
+  const savePolicy = useCallback(
+    async (p: Policy) => {
+      try {
+        const base = apiBaseRef.current.replace(/\/$/, "");
+        const res = await fetch(`${base}/policies/${p.policyId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            transactionLimit: p.transactionLimit,
+            dailyLimit: p.dailyLimit,
+            monthlyLimit: p.monthlyLimit,
+            blockedCategories: p.blockedCategories,
+            blockedMerchants: p.blockedMerchants,
+            amountAbove: p.approvalRules.amountAbove,
+            newMerchant: p.approvalRules.newMerchant,
+            highRisk: p.approvalRules.highRisk,
+          }),
+        });
+        if (!res.ok) throw new Error("policy save failed");
+        await refresh();
+      } catch {
+        void 0;
+      }
+    },
+    [refresh]
+  );
+
+  const runSimulation = useCallback(
+    async (count: number, seed: number) => {
+      try {
+        const r = await post("/simulate", { count, seed });
+        return {
+          total: r.requests ?? count,
+          allowed: r.allowed ?? 0,
+          approvalRequired: r.approvalRequired ?? 0,
+          blocked: r.blocked ?? 0,
+          byReason: r.byReason ?? {},
+          preventedAmount: r.preventedAmount ?? 0,
+          stages: r.stages ?? { received: count, authority: 0, policy: 0, risk: 0, decided: count },
+        } as SimulationReport;
+      } catch {
+        return null;
+      }
+    },
+    [post]
+  );
+
+  const sendAgentRequest = useCallback(
+    async (body: Record<string, unknown>) => {
+      try {
+        const r = await post("/agent/payment-request", body);
+        await refresh();
+        return r as GuardDecision;
+      } catch {
+        return null;
+      }
+    },
+    [post, refresh]
+  );
+
+  const getAudit = useCallback(async (requestId: string) => {
+    const base = apiBaseRef.current.replace(/\/$/, "");
+    try {
+      const res = await fetch(`${base}/audit/${requestId}`, { signal: AbortSignal.timeout(4000) });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.audit ?? [];
+    } catch {
+      return [];
+    }
+  }, []);
 
   const value = useMemo<GuardContextValue>(
     () => ({
-      state,
-      decide: (requestId, accept) => dispatch({ type: "decide", requestId, accept }),
-      freezeAgent: (agentId) => dispatch({ type: "setAgentStatus", agentId, status: "FROZEN" }),
-      unfreezeAgent: (agentId) => dispatch({ type: "setAgentStatus", agentId, status: "ACTIVE" }),
-      revokeAgent: (agentId) => dispatch({ type: "setAgentStatus", agentId, status: "REVOKED" }),
-      savePolicy: (policy) => dispatch({ type: "savePolicy", policy }),
-      ingestRequest,
-      dismissAnomaly: (anomalyId) => dispatch({ type: "dismissAnomaly", anomalyId }),
-      resetDemo: () => {
-        try {
-          window.localStorage.removeItem(STORAGE_KEY);
-        } catch {
-          void 0;
-        }
-        dispatch({ type: "reset" });
-      },
-      setApiBase: (url) => dispatch({ type: "setApiBase", url })
+      connected,
+      loading,
+      apiBase,
+      setApiBase,
+      agents,
+      policy,
+      transactions,
+      pending,
+      refresh,
+      decide,
+      setAgentStatus,
+      savePolicy,
+      runSimulation,
+      sendAgentRequest,
+      getAudit,
     }),
-    [state, ingestRequest]
+    [
+      connected, loading, apiBase, setApiBase, agents, policy, transactions, pending,
+      refresh, decide, setAgentStatus, savePolicy, runSimulation, sendAgentRequest, getAudit,
+    ]
   );
 
   return <GuardContext.Provider value={value}>{children}</GuardContext.Provider>;
