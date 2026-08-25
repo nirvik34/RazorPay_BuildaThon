@@ -1,6 +1,6 @@
 # AgentPay Guard — Known Issues & TODOs
 
-Status board. Updated after the "remove hardcoded data" + issue-fixing pass.
+Status board. Updated after the auth pass (owner accounts, login/signup, protected management API).
 Fixed items stay listed with their resolution for reference.
 
 ---
@@ -72,10 +72,18 @@ Fixed items stay listed with their resolution for reference.
 - No Node here. `tsc --noEmit` has never run against the live-store rewrite.
 - Run: `cd src/web && npm install && npx tsc --noEmit`.
 
-### C. Authentication (production)
-- Agent endpoints trust a registered `agentId` (unknown agents get 401) but
-  there's no cryptographic identity. Checkout confirm is unauthenticated.
-- Production: per-agent key pairs + signed requests, OAuth on MCP.
+### C. Authentication — DASHBOARD AUTH DONE, hardening remains
+- **Done:** owner account (first `/auth/register` claims it), PBKDF2-hashed
+  passwords, 7-day session tokens + long-lived device token, login/signup page
+  at `/login`, management endpoints (`/agents`, `/policies`, `/transactions`,
+  `/audit`, `/intents`, `/simulate`, freeze/revoke) return 401 without a valid
+  `Authorization: Bearer` token. Web store attaches the token and redirects to
+  `/login` on 401. Sidebar shows the signed-in user + sign-out.
+- **Deliberately open** (agent/phone flows): `/agent/*`, `/guard/pending`,
+  `/guard/approvals/*/action`, `/guard/payments/*`, `/checkout/*`, `/mcp`, webhooks.
+- **Production hardening remaining:** per-agent cryptographic identity (signed
+  requests) instead of trust-by-ID, OAuth on the MCP endpoint, auth on the
+  checkout-confirm callback, rate limiting.
 
 ### D. State is a single JSON file
 - `state.py` — fine for demo. Swap to SQLite/Postgres for durability.

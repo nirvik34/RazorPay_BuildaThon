@@ -30,7 +30,7 @@ const NAV = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { pending, connected } = useGuard();
+  const { pending, connected, user, logout } = useGuard();
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-navy text-white">
@@ -85,6 +85,21 @@ export function Sidebar() {
           <span className={clsx("h-2 w-2 rounded-full", !connected ? "bg-danger" : pending.length > 0 ? "bg-warning" : "bg-success")} />
           {!connected ? "BACKEND OFFLINE" : pending.length > 0 ? "ACTION REQUIRED" : "LIVE · PROTECTED"}
         </div>
+        {user && (
+          <div className="flex items-center justify-between rounded-sm px-3 py-2">
+            <div className="min-w-0">
+              <div className="truncate text-[12px] font-medium text-white">{user.name}</div>
+              <div className="truncate font-mono text-[10px] text-[#98A2B3]">{user.email}</div>
+            </div>
+            <button
+              onClick={logout}
+              title="Sign out"
+              className="rounded-sm px-2 py-1 text-[11px] font-semibold text-[#98A2B3] hover:bg-white/5 hover:text-white"
+            >
+              EXIT
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

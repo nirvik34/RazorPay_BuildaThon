@@ -82,6 +82,8 @@ def default_state() -> dict:
         }
     }
     return {
+        "users": {},
+        "sessions": {},
         "agents": agents,
         "policies": {"pol_default": policy},
         "intents": intents,

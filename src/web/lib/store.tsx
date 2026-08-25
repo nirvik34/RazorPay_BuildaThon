@@ -1,10 +1,17 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import type { Agent, AuditEvent, GuardDecision, PaymentRequest, Policy, TransactionRecord } from "./types";
 
 const STORAGE_KEY = "agentpay-api-base";
+const TOKEN_KEY = "agentpay-token";
 const DEFAULT_API = "http://localhost:8000";
+
+export interface AuthUser {
+  name: string;
+  email: string;
+}
 
 export interface PendingItem {
   request: PaymentRequest;
@@ -24,6 +31,12 @@ export interface SimulationReport {
 interface GuardContextValue {
   connected: boolean;
   loading: boolean;
+  needsAuth: boolean;
+  user: AuthUser | null;
+  ownerExists: boolean;
+  login: (email: string, password: string) => Promise<string | null>;
+  register: (name: string, email: string, password: string) => Promise<string | null>;
+  logout: () => void;
   apiBase: string;
   setApiBase: (url: string) => void;
   agents: Agent[];
@@ -49,8 +62,39 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
   const [policy, setPolicy] = useState<Policy | null>(null);
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [pending, setPending] = useState<PendingItem[]>([]);
+  const [token, setToken] = useState<string | null>(null);
+  const [needsAuth, setNeedsAuth] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [ownerExists, setOwnerExists] = useState(true);
   const apiBaseRef = useRef(apiBase);
   apiBaseRef.current = apiBase;
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+  const pathname = usePathname();
+  const router = useRouter();
+
+  // Auth gate: unauthenticated users land on /login; signed-in users skip it.
+  useEffect(() => {
+    if (needsAuth && pathname !== "/login") router.replace("/login");
+    if (!needsAuth && user && pathname === "/login") router.replace("/");
+  }, [needsAuth, user, pathname, router]);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(TOKEN_KEY);
+      if (saved) setToken(saved);
+      else setNeedsAuth(true);
+    } catch {
+      setNeedsAuth(true);
+    }
+  }, []);
+
+  const applyAuth = useCallback((sessionToken: string, authUser: AuthUser) => {
+    window.localStorage.setItem(TOKEN_KEY, sessionToken);
+    setToken(sessionToken);
+    setUser(authUser);
+    setNeedsAuth(false);
+  }, [])
 
   useEffect(() => {
     try {
@@ -72,13 +116,21 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
 
   const refresh = useCallback(async () => {
     const base = apiBaseRef.current.replace(/\/$/, "");
+    const headers: Record<string, string> = {};
+    if (tokenRef.current) headers.Authorization = `Bearer ${tokenRef.current}`;
     try {
       const [agentsRes, policiesRes, txnsRes, pendingRes] = await Promise.all([
-        fetch(`${base}/agents`, { signal: AbortSignal.timeout(4000) }),
-        fetch(`${base}/policies`, { signal: AbortSignal.timeout(4000) }),
-        fetch(`${base}/transactions`, { signal: AbortSignal.timeout(4000) }),
+        fetch(`${base}/agents`, { headers, signal: AbortSignal.timeout(4000) }),
+        fetch(`${base}/policies`, { headers, signal: AbortSignal.timeout(4000) }),
+        fetch(`${base}/transactions`, { headers, signal: AbortSignal.timeout(4000) }),
         fetch(`${base}/guard/pending`, { signal: AbortSignal.timeout(4000) }),
       ]);
+      if (agentsRes.status === 401) {
+        setNeedsAuth(true);
+        setConnected(false);
+        setLoading(false);
+        return;
+      }
       if (!agentsRes.ok || !txnsRes.ok) throw new Error("bad status");
       const agentsData = await agentsRes.json();
       const policiesData = await policiesRes.json();
@@ -107,13 +159,16 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Live updates: WebSocket when reachable, 15s polling as fallback.
+  // Fully paused while signed out — no 401 spam on the login page.
   useEffect(() => {
+    if (needsAuth) return;
     refresh();
     const id = window.setInterval(refresh, 15000);
     return () => window.clearInterval(id);
-  }, [refresh, apiBase]);
+  }, [refresh, apiBase, needsAuth]);
 
   useEffect(() => {
+    if (needsAuth) return;
     let ws: WebSocket | null = null;
     let closed = false;
     let reconnect: number | undefined;
@@ -135,6 +190,9 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
         ws.onclose = () => {
           if (!closed) reconnect = window.setTimeout(connect, 5000);
         };
+        ws.onerror = () => {
+          ws?.close();
+        };
       } catch {
         reconnect = window.setTimeout(connect, 5000);
       }
@@ -143,17 +201,26 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
     return () => {
       closed = true;
       if (reconnect) window.clearTimeout(reconnect);
-      ws?.close();
+      if (ws) {
+        ws.onclose = null;
+        ws.onerror = null;
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          ws.close();
+        }
+      }
     };
   }, [apiBase, refresh]);
 
   const post = useCallback(async (path: string, body?: unknown) => {
     const base = apiBaseRef.current.replace(/\/$/, "");
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (tokenRef.current) headers.Authorization = `Bearer ${tokenRef.current}`;
     const res = await fetch(`${base}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
+    if (res.status === 401) setNeedsAuth(true);
     if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
     return res.json();
   }, []);
@@ -187,9 +254,11 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
     async (p: Policy) => {
       try {
         const base = apiBaseRef.current.replace(/\/$/, "");
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (tokenRef.current) headers.Authorization = `Bearer ${tokenRef.current}`;
         const res = await fetch(`${base}/policies/${p.policyId}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({
             transactionLimit: p.transactionLimit,
             dailyLimit: p.dailyLimit,
@@ -243,6 +312,80 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
     [post, refresh]
   );
 
+  const login = useCallback(async (email: string, password: string) => {
+    const base = apiBaseRef.current.replace(/\/$/, "");
+    try {
+      const extractError = (data: { detail?: unknown }) => {
+        const d = data.detail;
+        if (Array.isArray(d)) return d.map((e) => e.msg).join(", ");
+        return (d as { message?: string })?.message ?? "Request failed";
+      };
+
+      const res = await fetch(`${base}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) return extractError(await res.json());
+      const data = await res.json();
+      applyAuth(data.sessionToken, data.user);
+      await refresh();
+      return null;
+    } catch {
+      return "Backend unreachable";
+    }
+  }, [applyAuth, refresh]);
+
+  const register = useCallback(async (name: string, email: string, password: string) => {
+    const base = apiBaseRef.current.replace(/\/$/, "");
+    try {
+      const res = await fetch(`${base}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+      if (!res.ok) return extractError(await res.json());
+      const data = await res.json();
+      applyAuth(data.sessionToken, data.user);
+      await refresh();
+      return null;
+    } catch {
+      return "Backend unreachable";
+    }
+  }, [applyAuth, refresh]);
+
+  const logout = useCallback(() => {
+    const base = apiBaseRef.current.replace(/\/$/, "");
+    const token = tokenRef.current;
+    if (token) {
+      fetch(`${base}/auth/logout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => undefined);
+    }
+    window.localStorage.removeItem(TOKEN_KEY);
+    setToken(null);
+    setUser(null);
+    setNeedsAuth(true);
+  }, []);
+
+  useEffect(() => {
+    if (!token) return;
+    const base = apiBaseRef.current.replace(/\/$/, "");
+    fetch(`${base}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => {
+        if (r.ok) return r.json();
+        setNeedsAuth(true);
+        return null;
+      })
+      .then((d) => d && setUser(d.user))
+      .catch(() => undefined);
+    fetch(`${base}/auth/status`)
+      .then((r) => r.json())
+      .then((d) => setOwnerExists(!!d.ownerExists))
+      .catch(() => undefined);
+  }, [token, apiBase]);
+
   const getAudit = useCallback(async (requestId: string) => {
     const base = apiBaseRef.current.replace(/\/$/, "");
     try {
@@ -259,6 +402,12 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
     () => ({
       connected,
       loading,
+      needsAuth,
+      user,
+      ownerExists,
+      login,
+      register,
+      logout,
       apiBase,
       setApiBase,
       agents,
@@ -274,7 +423,8 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
       getAudit,
     }),
     [
-      connected, loading, apiBase, setApiBase, agents, policy, transactions, pending,
+      connected, loading, needsAuth, user, ownerExists, login, register, logout,
+      apiBase, setApiBase, agents, policy, transactions, pending,
       refresh, decide, setAgentStatus, savePolicy, runSimulation, sendAgentRequest, getAudit,
     ]
   );

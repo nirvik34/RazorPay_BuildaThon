@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import routes_agent, routes_data, routes_guard, routes_mcp, routes_simulation
+from .api import routes_agent, routes_auth, routes_data, routes_guard, routes_mcp, routes_simulation
+from . import auth
 from .config import settings
 from .ws import CONNECTIONS
 from .state import store
@@ -33,6 +35,41 @@ app.include_router(routes_guard.router)
 app.include_router(routes_data.router)
 app.include_router(routes_simulation.router)
 app.include_router(routes_mcp.router)
+app.include_router(routes_auth.router)
+
+
+PROTECTED_PREFIXES = (
+    "/agents",
+    "/policies",
+    "/transactions",
+    "/audit",
+    "/intents",
+    "/simulate",
+    "/guard/agents",
+)
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    path = request.url.path
+    if request.method != "OPTIONS" and any(
+        path == p or path.startswith(p + "/") for p in PROTECTED_PREFIXES
+    ):
+        user = auth.authenticate_request_headers(request.headers.get("authorization"))
+        if not user:
+            # This middleware sits OUTSIDE CORSMiddleware, so 401 short-circuits
+            # would miss CORS headers and the browser blocks the response.
+            response = JSONResponse(
+                {"detail": {"code": "UNAUTHENTICATED", "message": "Sign in at /login"}},
+                status_code=401,
+            )
+            origin = request.headers.get("origin", "")
+            if origin in ("http://localhost:3000", "http://127.0.0.1:3000"):
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+                response.headers["Vary"] = "Origin"
+            return response
+    return await call_next(request)
 
 
 @app.get("/health")
