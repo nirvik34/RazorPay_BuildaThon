@@ -29,7 +29,13 @@ export default function LoginPage() {
         ? await login(email, password)
         : await register(name, email, password);
     setBusy(false);
-    if (err) setError(err);
+    if (err) {
+      setError(err);
+      // Owner already registered → flip to sign-in with the email prefilled.
+      if (err.toLowerCase().includes("already exists")) {
+        setMode("login");
+      }
+    }
   };
 
   return (

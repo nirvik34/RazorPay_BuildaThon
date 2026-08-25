@@ -6,7 +6,7 @@ import type { Agent, AuditEvent, GuardDecision, PaymentRequest, Policy, Transact
 
 const STORAGE_KEY = "agentpay-api-base";
 const TOKEN_KEY = "agentpay-token";
-const DEFAULT_API = "http://localhost:8000";
+const DEFAULT_API = "http://127.0.0.1:8000";
 
 export interface AuthUser {
   name: string;
@@ -90,6 +90,9 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const applyAuth = useCallback((sessionToken: string, authUser: AuthUser) => {
+    // Update the ref synchronously — refresh() called right after login must
+    // already see the token, or it 401s and flips needsAuth back (redirect loop).
+    tokenRef.current = sessionToken;
     window.localStorage.setItem(TOKEN_KEY, sessionToken);
     setToken(sessionToken);
     setUser(authUser);
@@ -125,9 +128,10 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
         fetch(`${base}/transactions`, { headers, signal: AbortSignal.timeout(4000) }),
         fetch(`${base}/guard/pending`, { signal: AbortSignal.timeout(4000) }),
       ]);
+      // Any HTTP response (even 401) means the backend is REACHABLE.
+      setConnected(true);
       if (agentsRes.status === 401) {
         setNeedsAuth(true);
-        setConnected(false);
         setLoading(false);
         return;
       }
@@ -331,8 +335,8 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
       applyAuth(data.sessionToken, data.user);
       await refresh();
       return null;
-    } catch {
-      return "Backend unreachable";
+    } catch (err) {
+      return `Network error: ${err instanceof Error ? err.message : String(err)}`;
     }
   }, [applyAuth, refresh]);
 
@@ -349,14 +353,15 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
       applyAuth(data.sessionToken, data.user);
       await refresh();
       return null;
-    } catch {
-      return "Backend unreachable";
+    } catch (err) {
+      return `Network error: ${err instanceof Error ? err.message : String(err)}`;
     }
   }, [applyAuth, refresh]);
 
   const logout = useCallback(() => {
     const base = apiBaseRef.current.replace(/\/$/, "");
     const token = tokenRef.current;
+    tokenRef.current = null;
     if (token) {
       fetch(`${base}/auth/logout`, {
         method: "POST",
