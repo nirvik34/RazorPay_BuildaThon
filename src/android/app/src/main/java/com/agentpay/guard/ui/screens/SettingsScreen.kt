@@ -49,6 +49,9 @@ fun SettingsScreen(viewModel: GuardViewModel) {
             Spacer(Modifier.height(4.dp))
         }
         item {
+            BackendUrlField()
+        }
+        item {
             DemoButton("RUN NORMAL PURCHASE", GuardColors.Brand) {
                 viewModel.submitRemote(DemoScenarios.normal()) { lastResult = it }
             }
@@ -85,6 +88,33 @@ fun SettingsScreen(viewModel: GuardViewModel) {
                 modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)
             )
         }
+    }
+}
+
+@Composable
+private fun BackendUrlField() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var url by remember { mutableStateOf(com.agentpay.guard.GuardGraph.backendBaseUrl) }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text("Backend URL", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        Text(
+            "Emulator: http://10.0.2.2:8000 · Physical phone: your PC's LAN IP (e.g. http://192.168.1.5:8000)",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(6.dp))
+        androidx.compose.material3.OutlinedTextField(
+            value = url,
+            onValueChange = { url = it },
+            singleLine = true,
+            textStyle = androidx.compose.ui.text.TextStyle(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 13.sp),
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(6.dp))
+        Button(
+            onClick = { com.agentpay.guard.GuardGraph.setBackendBaseUrl(context, url) },
+            modifier = Modifier.height(42.dp)
+        ) { Text("SAVE URL", fontWeight = FontWeight.Bold) }
     }
 }
 

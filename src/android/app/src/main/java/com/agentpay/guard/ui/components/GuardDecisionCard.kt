@@ -41,11 +41,6 @@ fun GuardDecisionCard(
     onReject: (() -> Unit)? = null
 ) {
     val decision = record.decision
-    val borderColor = when {
-        decision.decision == DecisionType.BLOCK -> GuardColors.Danger
-        record.isPendingApproval -> GuardColors.Warning
-        else -> GuardColors.Success
-    }
     val (statusBg, statusFg, statusLabel) = when {
         decision.decision == DecisionType.BLOCK -> Triple(GuardColors.DangerBg, GuardColors.DangerText, "BLOCKED BY POLICY")
         record.isPendingApproval -> Triple(GuardColors.WarningBg, GuardColors.WarningText, "ACTION REQUIRED")

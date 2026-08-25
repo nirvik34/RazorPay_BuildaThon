@@ -8,7 +8,7 @@
         android:name=".GuardApplication"
         android:label="AgentPay Guard"
         android:supportsRtl="true"
-        android:usesCleartextTraffic="true"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@style/Theme.AgentPay">
 
         <activity

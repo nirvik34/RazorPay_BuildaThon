@@ -38,26 +38,61 @@ def _request(state: dict, request_id: str) -> dict:
     return req
 
 
+PENDING_TTL_SECONDS = 300  # scoped authorizations live 5 minutes; approvals match
+
+
 @router.get("/pending")
 async def pending() -> list[dict]:
+    """Undecided approval requests, with automatic expiry after the 5-min window.
+
+    Expired requests are marked resolved server-side so they never re-appear,
+    and the agent's purchase poll sees a definitive 'expired' outcome.
+    """
     state = store.snapshot()
+    now = datetime.now(timezone.utc)
+    resolved_ids = {r["requestId"] for r in state.get("resolutions", [])}
     out: list[dict] = []
+    expired: list[str] = []
+
     for request_id, decision in state["decisions"].items():
-        if (
-            decision["decision"] == "USER_APPROVAL"
-            and decision.get("authorizationId") is None
-        ):
-            rec = {
-                "decision": decision,
-                "request": state["requests"][request_id],
-            }
-            if request_id not in [a["requestId"] for a in _resolved(state)]:
-                out.append(rec)
+        if decision["decision"] != "USER_APPROVAL":
+            continue
+        if decision.get("authorizationId") is not None:
+            continue
+        if request_id in resolved_ids:
+            continue
+        req = state["requests"].get(request_id)
+        if not req:
+            continue
+        try:
+            ts = datetime.fromisoformat(req["timestamp"])
+        except ValueError:
+            continue
+        if (now - ts).total_seconds() > PENDING_TTL_SECONDS:
+            expired.append(request_id)
+            continue
+        out.append({"decision": decision, "request": req})
+
+    if expired:
+        with LOCK:
+            live = store.state
+            for rid in expired:
+                live.setdefault("resolutions", []).append(
+                    {"requestId": rid, "action": "expire", "at": now_iso()}
+                )
+                live["audit"].setdefault(rid, []).append(
+                    {
+                        "eventId": new_id("evt"),
+                        "requestId": rid,
+                        "at": now_iso(),
+                        "label": "Approval window elapsed",
+                        "detail": "Auto-expired after 5 minutes without a decision",
+                    }
+                )
+            store.save()
+        broadcast_sync("approvals_expired", {"requestIds": expired})
+
     return out
-
-
-def _resolved(state: dict) -> list[dict]:
-    return [e for e in state.get("resolutions", [])]
 
 
 @router.post("/approvals/{request_id}/action")
@@ -337,6 +372,9 @@ async def order_for_authorization(authorization_id: str) -> dict:
 async def razorpay_webhook(
     request: Request, x_razorpay_signature: str | None = Header(default=None)
 ) -> dict:
+    """Safety net for the JS checkout: if the user pays but the browser confirm
+    never fires (tab closed, crash), Razorpay's `payment.authorized` webhook
+    triggers the server-side capture here instead."""
     body = await request.body()
     if settings.razorpay_webhook_secret:
         expected = hmac.new(
@@ -349,13 +387,67 @@ async def razorpay_webhook(
     data = await request.json()
     entity = data.get("payload", {}).get("payment", {}).get("entity", {})
     payment_id = entity.get("id")
+    event = data.get("event", "")
+    if not payment_id:
+        return {"ok": True, "ignored": "no payment entity"}
+
     with LOCK:
         state = store.state
         record = state.get("payments", {}).get(payment_id)
-        if record:
-            record["status"] = entity.get("status", record["status"])
-            store.save()
-    return {"ok": True}
+    if not record:
+        return {"ok": True, "ignored": "unknown payment (not an AgentPay order)"}
+
+    request_id = record.get("requestId")
+
+    if event == "payment.authorized" and record.get("status") not in ("captured",):
+        try:
+            remote = await capture_payment_by_id(payment_id, entity.get("amount", 0))
+        except RazorpayError as exc:
+            with LOCK:
+                state = store.state
+                state["audit"].setdefault(request_id, []).append(
+                    {
+                        "eventId": new_id("evt"),
+                        "requestId": request_id,
+                        "at": now_iso(),
+                        "label": "Webhook capture failed",
+                        "detail": str(exc),
+                    }
+                )
+                store.save()
+            raise HTTPException(
+                status_code=502, detail={"code": "CAPTURE_FAILED", "message": str(exc)}
+            ) from exc
+    else:
+        remote = entity
+
+    with LOCK:
+        state = store.state
+        state["payments"][remote.get("id", payment_id)] = {
+            **record,
+            **remote,
+            "requestId": request_id,
+        }
+        state["audit"].setdefault(request_id, []).append(
+            {
+                "eventId": new_id("evt"),
+                "requestId": request_id,
+                "at": now_iso(),
+                "label": f"Payment {remote.get('status')} (webhook)",
+                "detail": f"{event} · {payment_id}",
+            }
+        )
+        store.save()
+
+    broadcast_sync(
+        "payment_update",
+        {
+            "requestId": request_id,
+            "paymentId": payment_id,
+            "status": remote.get("status"),
+        },
+    )
+    return {"ok": True, "event": event, "status": remote.get("status")}
 
 
 @router.post("/agents/{agent_id}/freeze")

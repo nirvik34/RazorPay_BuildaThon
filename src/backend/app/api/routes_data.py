@@ -129,13 +129,21 @@ async def transactions() -> dict:
     return {"transactions": _txn_view(store.snapshot())}
 
 
+@router.get("/intents")
+async def intents() -> dict:
+    return {"intents": list(store.snapshot()["intents"].values())}
+
+
 @router.get("/audit/{request_id}")
 async def audit_detail(request_id: str) -> dict:
     state = store.snapshot()
     if request_id not in state["requests"]:
         raise HTTPException(status_code=404, detail={"code": "REQUEST_NOT_FOUND"})
+    request = state["requests"][request_id]
+    intent_id = request.get("intentId")
     return {
-        "request": state["requests"][request_id],
+        "request": request,
         "decision": state["decisions"].get(request_id),
         "audit": state["audit"].get(request_id, []),
+        "intent": state["intents"].get(intent_id) if intent_id else None,
     }

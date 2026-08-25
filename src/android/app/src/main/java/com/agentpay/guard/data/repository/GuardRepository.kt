@@ -175,7 +175,6 @@ class GuardRepository(
 
     companion object {
         const val TTL_MS = 5 * 60_000L
-        const val APPROVAL_LATENCY_MS = 13_000L
 
         @Volatile private var instance: GuardRepository? = null
 

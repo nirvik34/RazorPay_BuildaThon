@@ -6,7 +6,6 @@ import com.agentpay.guard.core.model.PaymentRequest
 import com.agentpay.guard.core.model.Policy
 import com.agentpay.guard.core.model.TransactionRecord
 import java.util.Calendar
-import java.util.concurrent.TimeUnit
 
 object PolicyEngine {
     const val VELOCITY_WINDOW_MS: Long = 10 * 60_000L

@@ -106,11 +106,46 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Live updates: WebSocket when reachable, 15s polling as fallback.
   useEffect(() => {
     refresh();
-    const id = window.setInterval(refresh, 3000);
+    const id = window.setInterval(refresh, 15000);
     return () => window.clearInterval(id);
   }, [refresh, apiBase]);
+
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let closed = false;
+    let reconnect: number | undefined;
+    let lastEvent = 0;
+
+    const connect = () => {
+      if (closed) return;
+      const wsUrl = apiBase.replace(/^http/, "ws").replace(/\/$/, "") + "/ws/events";
+      try {
+        ws = new WebSocket(wsUrl);
+        ws.onmessage = () => {
+          // Debounce bursts of events into at most one refresh per second.
+          const now = Date.now();
+          if (now - lastEvent > 1000) {
+            lastEvent = now;
+            refresh();
+          }
+        };
+        ws.onclose = () => {
+          if (!closed) reconnect = window.setTimeout(connect, 5000);
+        };
+      } catch {
+        reconnect = window.setTimeout(connect, 5000);
+      }
+    };
+    connect();
+    return () => {
+      closed = true;
+      if (reconnect) window.clearTimeout(reconnect);
+      ws?.close();
+    };
+  }, [apiBase, refresh]);
 
   const post = useCallback(async (path: string, body?: unknown) => {
     const base = apiBaseRef.current.replace(/\/$/, "");

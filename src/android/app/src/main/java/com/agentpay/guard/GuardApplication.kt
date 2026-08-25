@@ -8,6 +8,7 @@ class GuardApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        GuardGraph.loadSettings(this)
         NotificationHelper.ensureChannel(this)
         SyncWorker.schedule(this)
     }
