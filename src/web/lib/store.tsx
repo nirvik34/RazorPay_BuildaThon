@@ -52,6 +52,13 @@ interface GuardContextValue {
   getAudit: (requestId: string) => Promise<AuditEvent[]>;
 }
 
+function extractError(data: { detail?: unknown }): string {
+  const d = data?.detail;
+  if (Array.isArray(d)) return d.map((e) => (e as { msg?: string }).msg).filter(Boolean).join(", ");
+  if (typeof d === "string") return d;
+  return (d as { message?: string })?.message ?? "Request failed";
+}
+
 const GuardContext = createContext<GuardContextValue | null>(null);
 
 export function GuardProvider({ children }: { children: React.ReactNode }) {
@@ -63,7 +70,7 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [token, setToken] = useState<string | null>(null);
-  const [needsAuth, setNeedsAuth] = useState(false);
+  const [needsAuth, setNeedsAuth] = useState(true);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [ownerExists, setOwnerExists] = useState(true);
   const apiBaseRef = useRef(apiBase);
@@ -75,37 +82,91 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
 
   // Auth gate: unauthenticated users land on /login; signed-in users skip it.
   useEffect(() => {
+    if (loading) return;
     if (needsAuth && pathname !== "/login") router.replace("/login");
     if (!needsAuth && user && pathname === "/login") router.replace("/");
-  }, [needsAuth, user, pathname, router]);
+  }, [loading, needsAuth, user, pathname, router]);
 
+  // Initial boot: check saved base, verify token with /auth/me, and fetch owner status
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(TOKEN_KEY);
-      if (saved) setToken(saved);
-      else setNeedsAuth(true);
-    } catch {
-      setNeedsAuth(true);
-    }
+    let cancelled = false;
+
+    const init = async () => {
+      let savedBase: string | null = null;
+      let savedToken: string | null = null;
+      try {
+        savedBase = window.localStorage.getItem(STORAGE_KEY);
+        savedToken = window.localStorage.getItem(TOKEN_KEY);
+      } catch {
+        void 0;
+      }
+
+      const base = (savedBase || DEFAULT_API).replace(/\/$/, "");
+      if (savedBase) setApiBaseState(savedBase);
+
+      try {
+        const statusRes = await fetch(`${base}/auth/status`);
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          if (!cancelled) setOwnerExists(!!statusData.ownerExists);
+        }
+      } catch {
+        void 0;
+      }
+
+      if (savedToken) {
+        tokenRef.current = savedToken;
+        try {
+          const meRes = await fetch(`${base}/auth/me`, {
+            headers: { Authorization: `Bearer ${savedToken}` },
+          });
+          if (meRes.ok) {
+            const meData = await meRes.json();
+            if (!cancelled) {
+              setToken(savedToken);
+              setUser(meData.user);
+              setNeedsAuth(false);
+            }
+          } else {
+            try { window.localStorage.removeItem(TOKEN_KEY); } catch {}
+            tokenRef.current = null;
+            if (!cancelled) {
+              setToken(null);
+              setUser(null);
+              setNeedsAuth(true);
+            }
+          }
+        } catch {
+          if (!cancelled) {
+            setToken(savedToken);
+            setNeedsAuth(false);
+          }
+        }
+      } else {
+        if (!cancelled) {
+          setNeedsAuth(true);
+        }
+      }
+
+      if (!cancelled) setLoading(false);
+    };
+
+    init();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const applyAuth = useCallback((sessionToken: string, authUser: AuthUser) => {
     // Update the ref synchronously — refresh() called right after login must
     // already see the token, or it 401s and flips needsAuth back (redirect loop).
     tokenRef.current = sessionToken;
-    window.localStorage.setItem(TOKEN_KEY, sessionToken);
+    try { window.localStorage.setItem(TOKEN_KEY, sessionToken); } catch {}
     setToken(sessionToken);
     setUser(authUser);
     setNeedsAuth(false);
-  }, [])
-
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved) setApiBaseState(saved);
-    } catch {
-      void 0;
-    }
+    setOwnerExists(true);
   }, []);
 
   const setApiBase = useCallback((url: string) => {
@@ -131,7 +192,11 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
       // Any HTTP response (even 401) means the backend is REACHABLE.
       setConnected(true);
       if (agentsRes.status === 401) {
+        try { window.localStorage.removeItem(TOKEN_KEY); } catch {}
+        tokenRef.current = null;
+        setToken(null);
         setNeedsAuth(true);
+        setUser(null);
         setLoading(false);
         return;
       }
@@ -165,21 +230,20 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
   // Live updates: WebSocket when reachable, 15s polling as fallback.
   // Fully paused while signed out — no 401 spam on the login page.
   useEffect(() => {
-    if (needsAuth) return;
+    if (loading || needsAuth || !token) return;
     refresh();
     const id = window.setInterval(refresh, 15000);
     return () => window.clearInterval(id);
-  }, [refresh, apiBase, needsAuth]);
+  }, [loading, refresh, apiBase, needsAuth, token]);
 
   useEffect(() => {
-    if (needsAuth) return;
+    if (loading || needsAuth || !token) return;
     let ws: WebSocket | null = null;
     let closed = false;
     let reconnect: number | undefined;
     let lastEvent = 0;
 
     const connect = () => {
-      if (closed) return;
       const wsUrl = apiBase.replace(/^http/, "ws").replace(/\/$/, "") + "/ws/events";
       try {
         ws = new WebSocket(wsUrl);
@@ -201,9 +265,14 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
         reconnect = window.setTimeout(connect, 5000);
       }
     };
-    connect();
+
+    // Defer connection: React strict-mode mounts/unmounts effects twice in dev,
+    // and connecting instantly then cleaning up logs browser warnings.
+    const connectTimer = window.setTimeout(connect, 150);
+
     return () => {
       closed = true;
+      window.clearTimeout(connectTimer);
       if (reconnect) window.clearTimeout(reconnect);
       if (ws) {
         ws.onclose = null;
@@ -213,7 +282,7 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
         }
       }
     };
-  }, [apiBase, refresh]);
+  }, [loading, apiBase, refresh, needsAuth, token]);
 
   const post = useCallback(async (path: string, body?: unknown) => {
     const base = apiBaseRef.current.replace(/\/$/, "");
@@ -224,7 +293,10 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-    if (res.status === 401) setNeedsAuth(true);
+    if (res.status === 401) {
+      setNeedsAuth(true);
+      setUser(null);
+    }
     if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
     return res.json();
   }, []);
@@ -319,12 +391,6 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const base = apiBaseRef.current.replace(/\/$/, "");
     try {
-      const extractError = (data: { detail?: unknown }) => {
-        const d = data.detail;
-        if (Array.isArray(d)) return d.map((e) => e.msg).join(", ");
-        return (d as { message?: string })?.message ?? "Request failed";
-      };
-
       const res = await fetch(`${base}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -368,28 +434,11 @@ export function GuardProvider({ children }: { children: React.ReactNode }) {
         headers: { Authorization: `Bearer ${token}` },
       }).catch(() => undefined);
     }
-    window.localStorage.removeItem(TOKEN_KEY);
+    try { window.localStorage.removeItem(TOKEN_KEY); } catch {}
     setToken(null);
     setUser(null);
     setNeedsAuth(true);
   }, []);
-
-  useEffect(() => {
-    if (!token) return;
-    const base = apiBaseRef.current.replace(/\/$/, "");
-    fetch(`${base}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => {
-        if (r.ok) return r.json();
-        setNeedsAuth(true);
-        return null;
-      })
-      .then((d) => d && setUser(d.user))
-      .catch(() => undefined);
-    fetch(`${base}/auth/status`)
-      .then((r) => r.json())
-      .then((d) => setOwnerExists(!!d.ownerExists))
-      .catch(() => undefined);
-  }, [token, apiBase]);
 
   const getAudit = useCallback(async (requestId: string) => {
     const base = apiBaseRef.current.replace(/\/$/, "");

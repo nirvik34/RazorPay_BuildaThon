@@ -1,0 +1,7 @@
+# Optional — install for the full experience:
+#   pip install -r requirements-extras.txt
+mlflow>=2.14          # experiment tracking (falls back to ml/runs/*.json)
+shap>=0.46            # summary / force / dependence plots
+lime>=0.2             # local explanations
+matplotlib>=3.8       # plots
+tensorflow>=2.16      # CNN / RNN / LSTM + TFLite export (heavy!)

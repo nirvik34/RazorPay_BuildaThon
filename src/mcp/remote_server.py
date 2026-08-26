@@ -29,7 +29,13 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-import guard_tools
+try:
+    from . import guard_tools
+except ImportError:
+    import sys
+    sys.path.insert(0, os.path.dirname(__file__))
+    import guard_tools
+
 
 app = FastAPI(title="AgentPay Guard MCP (remote)", docs_url=None, redoc_url=None)
 

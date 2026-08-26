@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ShieldCheck, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
-  const { login, register, ownerExists, user, connected } = useGuard();
+  const { login, register, ownerExists, user, connected, needsAuth } = useGuard();
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
@@ -16,9 +16,11 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Redirect only when genuinely signed in — a stale `user` alongside
+  // needsAuth=true means auth just failed; redirecting then causes a loop.
   useEffect(() => {
-    if (user) router.replace("/");
-  }, [user, router]);
+    if (user && !needsAuth) router.replace("/");
+  }, [user, needsAuth, router]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

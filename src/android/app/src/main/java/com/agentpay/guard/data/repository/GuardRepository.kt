@@ -85,7 +85,15 @@ class GuardRepository(
         val intents = defaultIntents()
         val history = history(request.timestampMs)
 
-        val evaluation = DecisionEngine.evaluate(request, agent, policy, history, intents, request.timestampMs)
+        val known = com.agentpay.guard.core.policy.PolicyEngine.knownMerchants(history)
+        val featureVector = DecisionEngine.extractFeatureVector(
+            request, policy, history, known, request.timestampMs
+        )
+        val mlScore = com.agentpay.guard.ml.MLRuntime.predict(featureVector)
+            .takeIf { it >= 0f }
+        val evaluation = DecisionEngine.evaluate(
+            request, agent, policy, history, intents, request.timestampMs, mlScore
+        )
         val decision = evaluation.decision
 
         requestsDao.insert(RequestEntity.from(request))

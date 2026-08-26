@@ -9,6 +9,7 @@ class GuardApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         GuardGraph.loadSettings(this)
+        com.agentpay.guard.ml.MLRuntime.init(this)
         NotificationHelper.ensureChannel(this)
         SyncWorker.schedule(this)
     }

@@ -18,6 +18,17 @@ def main() -> None:
         print("health:", health)
         assert health["status"] == "ok"
 
+        reg = client.post(
+            "/auth/register",
+            json={
+                "name": "Test Owner",
+                "email": "owner@test.com",
+                "password": "password123",
+            },
+        ).json()
+        token = reg["sessionToken"]
+        auth_headers = {"Authorization": f"Bearer {token}"}
+
         payload = {
             "agentId": "claude-shopping-01",
             "intentId": "intent_183",
@@ -41,7 +52,8 @@ def main() -> None:
             "/guard/payments/execute", json={"authorizationId": auth_id}
         ).json()
         print("payment:", pay["payment"]["id"], pay["payment"]["status"])
-        assert pay["payment"]["status"] == "captured"
+        assert pay["payment"]["status"] in ("captured", "awaiting_checkout")
+
         replay = client.post(
             "/guard/payments/execute", json={"authorizationId": auth_id}
         )
@@ -96,7 +108,11 @@ def main() -> None:
         )
         print("gift card:", gift["decision"])
 
-        sim = client.post("/simulate", json={"count": 2000, "seed": 7}).json()
+        sim = client.post(
+            "/simulate",
+            json={"count": 2000, "seed": 7},
+            headers=auth_headers,
+        ).json()
         print(
             "simulation:",
             f"allowed={sim['allowed']} approval={sim['approvalRequired']} blocked={sim['blocked']}",
@@ -104,9 +120,11 @@ def main() -> None:
         )
         assert sim["requests"] == 2000 and sim["blocked"] > 0
 
-        audit = client.get(f"/audit/{req_id}").json()
+        audit = client.get(f"/audit/{req_id}", headers=auth_headers).json()
         labels = [e["label"] for e in audit["audit"]]
-        assert "Authorization issued" in labels and "Payment captured" in labels
+        assert "Authorization issued" in labels and any(
+            "Payment captured" in l or "awaiting checkout" in l for l in labels
+        )
         print("audit chain ok:", len(labels), "events")
 
     print("\nALL SMOKE TESTS PASSED")

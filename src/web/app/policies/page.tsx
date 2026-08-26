@@ -43,6 +43,7 @@ export default function PoliciesPage() {
 
   const toggleCategory = (cat: Category) => {
     setDraft((prev) => {
+      if (!prev) return null;
       const blocked = prev.blockedCategories.includes(cat);
       return {
         ...prev,

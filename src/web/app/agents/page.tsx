@@ -30,7 +30,7 @@ export default function AgentsPage() {
           <AgentCard
             key={agent.agentId}
             agent={agent}
-            policy={policy}
+            policy={policy ?? undefined}
             transactions={transactions}
           />
         ))}

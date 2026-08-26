@@ -13,7 +13,13 @@ from __future__ import annotations
 import json
 import sys
 
-import guard_tools
+try:
+    from . import guard_tools
+except ImportError:
+    import os
+    sys.path.insert(0, os.path.dirname(__file__))
+    import guard_tools
+
 
 
 def handle(req: dict) -> dict | None:

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { useGuard } from "@/lib/store";
+import { useGuard, type SimulationReport } from "@/lib/store";
 import { PageHeader, StatCard } from "@/components/stat-card";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,7 @@ export default function SimulationPage() {
   };
 
   const chartData = report
-    ? Object.entries(report.byReason)
+    ? (Object.entries(report.byReason) as [string, number][])
         .map(([code, count]) => ({ code: REASON_LABELS[code] ?? code, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 6)

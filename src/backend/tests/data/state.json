@@ -1,0 +1,703 @@
+{
+  "users": {
+    "owner@test.com": {
+      "name": "Test Owner",
+      "email": "owner@test.com",
+      "salt": "9b1d06d77e92869fd0d33941d6898fd3",
+      "passwordHash": "76f1db55fdbf4e7362424d62a4b082117d9fb8e82a9a3721dde65e64d2eb6336",
+      "deviceToken": "dev_ec9b7ce87f778a215fbeab4393743f0601947992",
+      "createdAt": "2026-08-27T01:44:30+05:30"
+    }
+  },
+  "sessions": {
+    "sess_c404fbe060932813334a609536fc886decf03f75494f98cd": {
+      "email": "owner@test.com",
+      "expiresAt": "2026-09-02T20:14:30.160295+00:00"
+    }
+  },
+  "agents": {
+    "claude-shopping-01": {
+      "agentId": "claude-shopping-01",
+      "name": "Claude Shopping Agent",
+      "ownerId": "user_001",
+      "status": "ACTIVE",
+      "trustScore": 94,
+      "riskState": "NORMAL",
+      "policyId": "pol_default",
+      "createdAt": "2026-08-27T01:44:30+05:30"
+    },
+    "gemini-shopping-02": {
+      "agentId": "gemini-shopping-02",
+      "name": "Gemini Shopping Agent",
+      "ownerId": "user_001",
+      "status": "ACTIVE",
+      "trustScore": 81,
+      "riskState": "NORMAL",
+      "policyId": "pol_default",
+      "createdAt": "2026-08-27T01:44:30+05:30"
+    },
+    "gpt-assistant-03": {
+      "agentId": "gpt-assistant-03",
+      "name": "ChatGPT Assistant",
+      "ownerId": "user_001",
+      "status": "ACTIVE",
+      "trustScore": 88,
+      "riskState": "NORMAL",
+      "policyId": "pol_default",
+      "createdAt": "2026-08-27T01:44:30+05:30"
+    }
+  },
+  "policies": {
+    "pol_default": {
+      "policyId": "pol_default",
+      "version": 3,
+      "transactionLimit": 20000,
+      "dailyLimit": 75000,
+      "monthlyLimit": 200000,
+      "allowedCategories": [
+        "electronics",
+        "groceries",
+        "office_supplies"
+      ],
+      "blockedCategories": [
+        "gift_cards",
+        "gambling",
+        "cryptocurrency"
+      ],
+      "blockedMerchants": [],
+      "approvalRules": {
+        "newMerchant": true,
+        "international": true,
+        "amountAbove": 10000,
+        "highRisk": true
+      }
+    }
+  },
+  "intents": {
+    "intent_183": {
+      "intentId": "intent_183",
+      "agentId": "claude-shopping-01",
+      "goal": "Find me noise-cancelling headphones under \u20b915,000.",
+      "category": "electronics",
+      "budget": 15000,
+      "currency": "INR",
+      "createdAt": "2026-08-27T01:44:30+05:30",
+      "expiresAt": "2026-08-27T20:14:30.000618+00:00"
+    }
+  },
+  "requests": {
+    "req_ef3a15": {
+      "requestId": "req_ef3a15",
+      "agentId": "claude-shopping-01",
+      "intentId": "intent_183",
+      "merchant": "amazon",
+      "product": "Sony WH-1000XM5",
+      "amount": 14499,
+      "currency": "INR",
+      "category": "electronics",
+      "sessionId": "sess_978e6747",
+      "timestamp": "2026-08-27T01:44:30+05:30"
+    },
+    "req_773cb6": {
+      "requestId": "req_773cb6",
+      "agentId": "gemini-shopping-02",
+      "intentId": null,
+      "merchant": "techmart",
+      "product": "MacBook Pro 14",
+      "amount": 42000,
+      "currency": "INR",
+      "category": "electronics",
+      "sessionId": "sess_93d77504",
+      "timestamp": "2026-08-27T01:44:31+05:30"
+    },
+    "req_f61397": {
+      "requestId": "req_f61397",
+      "agentId": "claude-shopping-01",
+      "intentId": null,
+      "merchant": "croma",
+      "product": "Accessory 9800",
+      "amount": 9800,
+      "currency": "INR",
+      "category": "electronics",
+      "sessionId": "sess_smoke_split",
+      "timestamp": "2026-08-27T01:44:31+05:30"
+    },
+    "req_2eb552": {
+      "requestId": "req_2eb552",
+      "agentId": "claude-shopping-01",
+      "intentId": null,
+      "merchant": "croma",
+      "product": "Accessory 9700",
+      "amount": 9700,
+      "currency": "INR",
+      "category": "electronics",
+      "sessionId": "sess_smoke_split",
+      "timestamp": "2026-08-27T01:44:31+05:30"
+    },
+    "req_4465f3": {
+      "requestId": "req_4465f3",
+      "agentId": "claude-shopping-01",
+      "intentId": null,
+      "merchant": "croma",
+      "product": "Accessory 9900",
+      "amount": 9900,
+      "currency": "INR",
+      "category": "electronics",
+      "sessionId": "sess_smoke_split",
+      "timestamp": "2026-08-27T01:44:31+05:30"
+    },
+    "req_6929b4": {
+      "requestId": "req_6929b4",
+      "agentId": "gpt-assistant-03",
+      "intentId": null,
+      "merchant": "flipkart",
+      "product": "Gift card",
+      "amount": 5000,
+      "currency": "INR",
+      "category": "gift_cards",
+      "sessionId": "sess_741b3edb",
+      "timestamp": "2026-08-27T01:44:31+05:30"
+    }
+  },
+  "decisions": {
+    "req_ef3a15": {
+      "requestId": "req_ef3a15",
+      "decision": "USER_APPROVAL",
+      "reasonCodes": [
+        {
+          "code": "AGENT_AUTHORIZED",
+          "label": "Agent authorized",
+          "severity": "ok"
+        },
+        {
+          "code": "CATEGORY_ALLOWED",
+          "label": "Category electronics allowed",
+          "severity": "ok"
+        },
+        {
+          "code": "NEW_MERCHANT",
+          "label": "New merchant requires review",
+          "severity": "warn"
+        },
+        {
+          "code": "BUDGET_VALID",
+          "label": "Budget within intent",
+          "severity": "ok"
+        },
+        {
+          "code": "LIMIT_WITHIN",
+          "label": "Within transaction limit",
+          "severity": "ok"
+        }
+      ],
+      "riskScore": 60,
+      "intentScore": 90,
+      "circumventionScore": 0,
+      "policyVersion": 3,
+      "authorizationId": "auth_807719",
+      "timestamp": "2026-08-27T01:44:30+05:30"
+    },
+    "req_773cb6": {
+      "requestId": "req_773cb6",
+      "decision": "BLOCK",
+      "reasonCodes": [
+        {
+          "code": "AGENT_AUTHORIZED",
+          "label": "Agent authorized",
+          "severity": "ok"
+        },
+        {
+          "code": "CATEGORY_ALLOWED",
+          "label": "Category electronics allowed",
+          "severity": "ok"
+        },
+        {
+          "code": "NEW_MERCHANT",
+          "label": "New merchant requires review",
+          "severity": "warn"
+        },
+        {
+          "code": "LIMIT_TRANSACTION_EXCEEDED",
+          "label": "\u20b942000 exceeds \u20b920000 transaction limit",
+          "severity": "block"
+        }
+      ],
+      "riskScore": 66,
+      "intentScore": 50,
+      "circumventionScore": 0,
+      "policyVersion": 3,
+      "authorizationId": null,
+      "timestamp": "2026-08-27T01:44:31+05:30"
+    },
+    "req_f61397": {
+      "requestId": "req_f61397",
+      "decision": "USER_APPROVAL",
+      "reasonCodes": [
+        {
+          "code": "AGENT_AUTHORIZED",
+          "label": "Agent authorized",
+          "severity": "ok"
+        },
+        {
+          "code": "CATEGORY_ALLOWED",
+          "label": "Category electronics allowed",
+          "severity": "ok"
+        },
+        {
+          "code": "NEW_MERCHANT",
+          "label": "New merchant requires review",
+          "severity": "warn"
+        },
+        {
+          "code": "BUDGET_VALID",
+          "label": "Budget within intent",
+          "severity": "ok"
+        },
+        {
+          "code": "LIMIT_WITHIN",
+          "label": "Within transaction limit",
+          "severity": "ok"
+        }
+      ],
+      "riskScore": 44,
+      "intentScore": 50,
+      "circumventionScore": 0,
+      "policyVersion": 3,
+      "authorizationId": null,
+      "timestamp": "2026-08-27T01:44:31+05:30"
+    },
+    "req_2eb552": {
+      "requestId": "req_2eb552",
+      "decision": "USER_APPROVAL",
+      "reasonCodes": [
+        {
+          "code": "AGENT_AUTHORIZED",
+          "label": "Agent authorized",
+          "severity": "ok"
+        },
+        {
+          "code": "CATEGORY_ALLOWED",
+          "label": "Category electronics allowed",
+          "severity": "ok"
+        },
+        {
+          "code": "NEW_MERCHANT",
+          "label": "New merchant requires review",
+          "severity": "warn"
+        },
+        {
+          "code": "BUDGET_VALID",
+          "label": "Budget within intent",
+          "severity": "ok"
+        },
+        {
+          "code": "LIMIT_WITHIN",
+          "label": "Within transaction limit",
+          "severity": "ok"
+        }
+      ],
+      "riskScore": 59,
+      "intentScore": 50,
+      "circumventionScore": 20,
+      "policyVersion": 3,
+      "authorizationId": null,
+      "timestamp": "2026-08-27T01:44:31+05:30"
+    },
+    "req_4465f3": {
+      "requestId": "req_4465f3",
+      "decision": "BLOCK",
+      "reasonCodes": [
+        {
+          "code": "AGENT_AUTHORIZED",
+          "label": "Agent authorized",
+          "severity": "ok"
+        },
+        {
+          "code": "CATEGORY_ALLOWED",
+          "label": "Category electronics allowed",
+          "severity": "ok"
+        },
+        {
+          "code": "NEW_MERCHANT",
+          "label": "New merchant requires review",
+          "severity": "warn"
+        },
+        {
+          "code": "CIRCUMVENTION_DETECTED",
+          "label": "Split pattern: 3 payments, aggregate \u20b929400",
+          "severity": "block"
+        }
+      ],
+      "riskScore": 59,
+      "intentScore": 50,
+      "circumventionScore": 85,
+      "policyVersion": 3,
+      "authorizationId": null,
+      "timestamp": "2026-08-27T01:44:31+05:30"
+    },
+    "req_6929b4": {
+      "requestId": "req_6929b4",
+      "decision": "BLOCK",
+      "reasonCodes": [
+        {
+          "code": "AGENT_AUTHORIZED",
+          "label": "Agent authorized",
+          "severity": "ok"
+        },
+        {
+          "code": "CATEGORY_BLOCKED",
+          "label": "Category gift_cards is disabled",
+          "severity": "block"
+        },
+        {
+          "code": "NEW_MERCHANT",
+          "label": "New merchant requires review",
+          "severity": "warn"
+        }
+      ],
+      "riskScore": 51,
+      "intentScore": 50,
+      "circumventionScore": 0,
+      "policyVersion": 3,
+      "authorizationId": null,
+      "timestamp": "2026-08-27T01:44:31+05:30"
+    }
+  },
+  "authorizations": {
+    "auth_807719": {
+      "authorizationId": "auth_807719",
+      "requestId": "req_ef3a15",
+      "agentId": "claude-shopping-01",
+      "merchant": "amazon",
+      "product": "Sony WH-1000XM5",
+      "amount": 14499,
+      "currency": "INR",
+      "intentId": "intent_183",
+      "expiresAt": "2026-08-26T20:19:30.167818+00:00",
+      "status": "USED",
+      "issuedAt": "2026-08-27T01:44:30+05:30"
+    }
+  },
+  "audit": {
+    "req_ef3a15": [
+      {
+        "eventId": "evt_1675e8",
+        "requestId": "req_ef3a15",
+        "at": "2026-08-27T01:44:30+05:30",
+        "label": "Payment request received",
+        "detail": "Sony WH-1000XM5"
+      },
+      {
+        "eventId": "evt_330a3e",
+        "requestId": "req_ef3a15",
+        "at": "2026-08-27T01:44:30+05:30",
+        "label": "Agent authenticated",
+        "detail": "claude-shopping-01"
+      },
+      {
+        "eventId": "evt_8a7654",
+        "requestId": "req_ef3a15",
+        "at": "2026-08-27T01:44:30+05:30",
+        "label": "Policy evaluated",
+        "detail": "v3"
+      },
+      {
+        "eventId": "evt_3b5d79",
+        "requestId": "req_ef3a15",
+        "at": "2026-08-27T01:44:30+05:30",
+        "label": "Risk assessed",
+        "detail": "60/100"
+      },
+      {
+        "eventId": "evt_047939",
+        "requestId": "req_ef3a15",
+        "at": "2026-08-27T01:44:30+05:30",
+        "label": "User notified"
+      },
+      {
+        "eventId": "evt_ac55fc",
+        "requestId": "req_ef3a15",
+        "at": "2026-08-27T01:44:30+05:30",
+        "label": "Awaiting user decision"
+      },
+      {
+        "eventId": "evt_b86bbe",
+        "requestId": "req_ef3a15",
+        "at": "2026-08-27T01:44:30+05:30",
+        "label": "User accepted"
+      },
+      {
+        "eventId": "evt_974637",
+        "requestId": "req_ef3a15",
+        "at": "2026-08-27T01:44:30+05:30",
+        "label": "Authorization issued",
+        "detail": "auth_807719"
+      },
+      {
+        "eventId": "evt_9b6ed5",
+        "requestId": "req_ef3a15",
+        "at": "2026-08-27T01:44:30+05:30",
+        "label": "Payment initiated",
+        "detail": "Razorpay order"
+      },
+      {
+        "eventId": "evt_6badf1",
+        "requestId": "req_ef3a15",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Payment initiated \u2014 awaiting checkout",
+        "detail": "order_TUWhPgZOoznGwJ"
+      }
+    ],
+    "req_773cb6": [
+      {
+        "eventId": "evt_58e469",
+        "requestId": "req_773cb6",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Payment request received",
+        "detail": "MacBook Pro 14"
+      },
+      {
+        "eventId": "evt_253a3d",
+        "requestId": "req_773cb6",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Agent authenticated",
+        "detail": "gemini-shopping-02"
+      },
+      {
+        "eventId": "evt_9e92ff",
+        "requestId": "req_773cb6",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Policy evaluated",
+        "detail": "v3"
+      },
+      {
+        "eventId": "evt_635d95",
+        "requestId": "req_773cb6",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Risk assessed",
+        "detail": "66/100"
+      },
+      {
+        "eventId": "evt_467044",
+        "requestId": "req_773cb6",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "\u20b942000 exceeds \u20b920000 transaction limit",
+        "detail": "LIMIT_TRANSACTION_EXCEEDED"
+      },
+      {
+        "eventId": "evt_fd331e",
+        "requestId": "req_773cb6",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "No approval requested"
+      },
+      {
+        "eventId": "evt_e7823a",
+        "requestId": "req_773cb6",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Agent informed",
+        "detail": "Structured denial returned"
+      }
+    ],
+    "req_f61397": [
+      {
+        "eventId": "evt_5d7c68",
+        "requestId": "req_f61397",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Payment request received",
+        "detail": "Accessory 9800"
+      },
+      {
+        "eventId": "evt_b09439",
+        "requestId": "req_f61397",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Agent authenticated",
+        "detail": "claude-shopping-01"
+      },
+      {
+        "eventId": "evt_a3383e",
+        "requestId": "req_f61397",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Policy evaluated",
+        "detail": "v3"
+      },
+      {
+        "eventId": "evt_32745c",
+        "requestId": "req_f61397",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Risk assessed",
+        "detail": "44/100"
+      },
+      {
+        "eventId": "evt_267b44",
+        "requestId": "req_f61397",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "User notified"
+      },
+      {
+        "eventId": "evt_cb8caf",
+        "requestId": "req_f61397",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Awaiting user decision"
+      }
+    ],
+    "req_2eb552": [
+      {
+        "eventId": "evt_d644a9",
+        "requestId": "req_2eb552",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Payment request received",
+        "detail": "Accessory 9700"
+      },
+      {
+        "eventId": "evt_ee5515",
+        "requestId": "req_2eb552",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Agent authenticated",
+        "detail": "claude-shopping-01"
+      },
+      {
+        "eventId": "evt_0634ff",
+        "requestId": "req_2eb552",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Policy evaluated",
+        "detail": "v3"
+      },
+      {
+        "eventId": "evt_442fb0",
+        "requestId": "req_2eb552",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Risk assessed",
+        "detail": "59/100"
+      },
+      {
+        "eventId": "evt_cd0702",
+        "requestId": "req_2eb552",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "User notified"
+      },
+      {
+        "eventId": "evt_c7770a",
+        "requestId": "req_2eb552",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Awaiting user decision"
+      }
+    ],
+    "req_4465f3": [
+      {
+        "eventId": "evt_1fb431",
+        "requestId": "req_4465f3",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Payment request received",
+        "detail": "Accessory 9900"
+      },
+      {
+        "eventId": "evt_93941e",
+        "requestId": "req_4465f3",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Agent authenticated",
+        "detail": "claude-shopping-01"
+      },
+      {
+        "eventId": "evt_05f113",
+        "requestId": "req_4465f3",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Policy evaluated",
+        "detail": "v3"
+      },
+      {
+        "eventId": "evt_3c2b5c",
+        "requestId": "req_4465f3",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Risk assessed",
+        "detail": "59/100"
+      },
+      {
+        "eventId": "evt_320cd9",
+        "requestId": "req_4465f3",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Split pattern: 3 payments, aggregate \u20b929400",
+        "detail": "CIRCUMVENTION_DETECTED"
+      },
+      {
+        "eventId": "evt_c0dd85",
+        "requestId": "req_4465f3",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "No approval requested"
+      },
+      {
+        "eventId": "evt_3e68a8",
+        "requestId": "req_4465f3",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Agent informed",
+        "detail": "Structured denial returned"
+      }
+    ],
+    "req_6929b4": [
+      {
+        "eventId": "evt_75546b",
+        "requestId": "req_6929b4",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Payment request received",
+        "detail": "Gift card"
+      },
+      {
+        "eventId": "evt_a5a844",
+        "requestId": "req_6929b4",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Agent authenticated",
+        "detail": "gpt-assistant-03"
+      },
+      {
+        "eventId": "evt_d0f551",
+        "requestId": "req_6929b4",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Policy evaluated",
+        "detail": "v3"
+      },
+      {
+        "eventId": "evt_acdf88",
+        "requestId": "req_6929b4",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Risk assessed",
+        "detail": "51/100"
+      },
+      {
+        "eventId": "evt_41bb3c",
+        "requestId": "req_6929b4",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Category gift_cards is disabled",
+        "detail": "CATEGORY_BLOCKED"
+      },
+      {
+        "eventId": "evt_f7b08b",
+        "requestId": "req_6929b4",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "No approval requested"
+      },
+      {
+        "eventId": "evt_16dbf2",
+        "requestId": "req_6929b4",
+        "at": "2026-08-27T01:44:31+05:30",
+        "label": "Agent informed",
+        "detail": "Structured denial returned"
+      }
+    ]
+  },
+  "anomalies": [],
+  "resolutions": [
+    {
+      "requestId": "req_ef3a15",
+      "action": "accept",
+      "at": "2026-08-27T01:44:30+05:30"
+    }
+  ],
+  "payments": {
+    "pending_auth_807719": {
+      "id": null,
+      "status": "awaiting_checkout",
+      "order_id": "order_TUWhPgZOoznGwJ",
+      "authorizationId": "auth_807719",
+      "requestId": "req_ef3a15"
+    }
+  }
+}

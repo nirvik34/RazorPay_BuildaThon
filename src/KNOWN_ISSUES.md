@@ -50,11 +50,20 @@ Fixed items stay listed with their resolution for reference.
 - `GET /intents` added; `/audit/{id}` now returns the full `intent` object.
 - Web audit page shows the real intent goal text when available.
 
-### 11. Weak ML anomaly model — IMPROVED
-- Added burst-context features: `night_hour`, `velocity_x_amount`,
-  `novelty_pressure` (unknown merchant × unfamiliar category × night).
-- Anomaly model: precision **0.33 → 0.52**, recall **0.28 → 0.62**.
-- Risk model unchanged at F1 0.98. Circumvention tests all pass.
+### 11. ML — model zoo + on-device inference — DONE
+- Full zoo trained & compared (`training/train_all_models.py`): Logistic
+  Regression / Decision Tree / Random Forest / Gradient Boosting / MLP, plus
+  CNN / RNN / LSTM when TensorFlow is installed (graceful skip otherwise).
+- MLflow tracking with JSON fallback (`ml/runs/runs.json`).
+- Explainability: `explain/explain.py` — SHAP summary/force/dependence, LIME,
+  feature-importance plot → `ml/explanations/`.
+- **On-device:** best model exported as a 9.7 KB JSON bundle
+  (`android/.../assets/ml/risk_model.json`); pure-Kotlin `MLRuntime.kt`
+  runs inference with zero ML dependencies — verified to match sklearn to
+  1e-6. Blended 50/50 with the heuristic engine in `DecisionEngine`.
+- Anomaly model: precision 0.33 → 0.52, recall 0.28 → 0.62 (improved).
+- Datasets: supports Kaggle `creditcard.csv` (Class) and `fraud_data.csv`
+  (class) via `data/load_data.py`, synthetic fallback always available.
 
 ### 14. Retrofit client rebuilt per call — FIXED
 - `GuardGraph.api()` now caches the client and invalidates only when the

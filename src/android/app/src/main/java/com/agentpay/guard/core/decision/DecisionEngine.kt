@@ -23,13 +23,64 @@ data class Evaluation(
 
 object DecisionEngine {
 
+    /**
+     * Builds the ML feature vector (name → raw value) matching
+     * src/ml FEATURE_COLUMNS order-independent by name. The exported model's
+     * scaler + feature list handle ordering on the runtime side.
+     */
+    fun extractFeatureVector(
+        request: PaymentRequest,
+        policy: Policy,
+        history: List<TransactionRecord>,
+        knownMerchants: Set<String>,
+        nowMs: Long
+    ): Map<String, Float> {
+        val merchantKnown = if (request.merchant in knownMerchants) 1f else 0f
+        val categoryAllowed = if (request.category !in policy.blockedCategories) 1f else 0f
+        val amountRatio = request.amount.toFloat() / policy.transactionLimit
+        val hour = java.util.Calendar.getInstance().apply { timeInMillis = request.timestampMs }
+            .get(java.util.Calendar.HOUR_OF_DAY)
+        val velocity = PolicyEngine.velocityCount(history, request.agentId, nowMs)
+        val usedCategories = history
+            .filter { it.request.agentId == request.agentId }
+            .map { it.request.category }
+            .toSet()
+        val categoryFamiliar = if (request.category in usedCategories) 1f else 0f
+        val priorBlocks = history.count {
+            it.request.agentId == request.agentId &&
+                it.decision.decision == DecisionType.BLOCK &&
+                sameDay(it.request.timestampMs, nowMs)
+        }
+        val night = if (hour < 8 || hour >= 21) 1f else 0f
+        return mapOf(
+            "merchant_known" to merchantKnown,
+            "category_allowed" to categoryAllowed,
+            "amount_ratio" to amountRatio,
+            "hour" to hour.toFloat(),
+            "velocity_10m" to velocity.toFloat(),
+            "category_familiar" to categoryFamiliar,
+            "prior_blocks_today" to priorBlocks.toFloat(),
+            "night_hour" to night,
+            "velocity_x_amount" to velocity * amountRatio,
+            "novelty_pressure" to (1f - merchantKnown) * (1f - categoryFamiliar) * night
+        )
+    }
+
+    private fun sameDay(a: Long, b: Long): Boolean {
+        val calA = java.util.Calendar.getInstance().apply { timeInMillis = a }
+        val calB = java.util.Calendar.getInstance().apply { timeInMillis = b }
+        return calA.get(java.util.Calendar.DAY_OF_YEAR) == calB.get(java.util.Calendar.DAY_OF_YEAR) &&
+            calA.get(java.util.Calendar.YEAR) == calB.get(java.util.Calendar.YEAR)
+    }
+
     fun evaluate(
         request: PaymentRequest,
         agent: Agent,
         policy: Policy,
         history: List<TransactionRecord>,
         intents: List<IntentRecord>,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        mlScore: Float? = null
     ): Evaluation {
         val known = PolicyEngine.knownMerchants(history)
         val risk = RiskEngine.assess(request, policy, history, known, nowMs)
@@ -98,18 +149,27 @@ object DecisionEngine {
             }
         }
 
+        // Blend the on-device ML probability with the heuristic score 50/50
+        // when a trained model bundle is present in assets.
+        val blendedRisk = mlScore?.let { ml ->
+            ((risk.score + ml * 100f) / 2f).toInt().coerceIn(0, 100)
+        } ?: risk.score
+        val signals = if (mlScore != null && mlScore >= 0) {
+            risk.signals + "ML risk model: ${(mlScore * 100).toInt()}% probability"
+        } else risk.signals
+
         return Evaluation(
             decision = GuardDecision(
                 requestId = request.requestId,
                 decision = decision,
                 reasonCodes = reasons,
-                riskScore = risk.score,
+                riskScore = blendedRisk,
                 intentScore = intent.score,
                 circumventionScore = circumvention.score,
                 policyVersion = policy.version,
                 timestampMs = nowMs
             ),
-            riskSignals = risk.signals,
+            riskSignals = signals,
             circumventionAggregate = circumvention.aggregateAmount,
             circumventionWindow = circumvention.windowCount
         )
