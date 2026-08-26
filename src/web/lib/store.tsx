@@ -54,7 +54,16 @@ interface GuardContextValue {
 
 function extractError(data: { detail?: unknown }): string {
   const d = data?.detail;
-  if (Array.isArray(d)) return d.map((e) => (e as { msg?: string }).msg).filter(Boolean).join(", ");
+  if (Array.isArray(d)) {
+    return d
+      .map((e) => {
+        const item = e as { msg?: string; loc?: (string | number)[] };
+        const field = item.loc && item.loc.length > 0 ? String(item.loc[item.loc.length - 1]) : "";
+        return field && field !== "body" ? `${field}: ${item.msg}` : item.msg;
+      })
+      .filter(Boolean)
+      .join("; ");
+  }
   if (typeof d === "string") return d;
   return (d as { message?: string })?.message ?? "Request failed";
 }

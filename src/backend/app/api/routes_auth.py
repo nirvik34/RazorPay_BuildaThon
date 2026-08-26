@@ -75,3 +75,10 @@ async def logout(authorization: Optional[str] = Header(default=None)) -> dict:
         else ""
     )
     return {"ok": auth.logout(token)}
+
+
+@router.post("/reset-dev")
+async def reset_dev() -> dict:
+    store.reset()
+    return {"ok": True, "message": "Backend state reset successfully"}
+
