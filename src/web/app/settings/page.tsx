@@ -87,7 +87,27 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-3xl">
-      <PageHeader title="Settings" description="Backend connection and real agent-request triggers." />
+      <PageHeader title="Settings" description="Backend connection, typography preferences, and real agent-request triggers." />
+
+      {/* Typography & Font Info */}
+      <Card className="mb-6">
+        <CardHeader title="Base Typeface & Typography" />
+        <div className="p-5">
+          <div className="flex items-center justify-between p-3.5 rounded-xl border border-blue-200 bg-blue-50/50">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[14px] font-bold text-slate-900">Metropolis</span>
+                <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  Design Standard
+                </span>
+              </div>
+              <div className="text-[12px] text-slate-600 mt-1">
+                Modern, geometric sans-serif font applied project-wide for Razorpay aesthetic consistency.
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
 
       <Card className="mb-6">
         <CardHeader title="Backend connection" />

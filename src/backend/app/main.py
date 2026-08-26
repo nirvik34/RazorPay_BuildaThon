@@ -24,7 +24,17 @@ app = FastAPI(title="AgentPay Guard API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+        "http://localhost:3002",
+        "http://127.0.0.1:3002",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:[0-9]+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -57,14 +67,12 @@ async def auth_middleware(request: Request, call_next):
     ):
         user = auth.authenticate_request_headers(request.headers.get("authorization"))
         if not user:
-            # This middleware sits OUTSIDE CORSMiddleware, so 401 short-circuits
-            # would miss CORS headers and the browser blocks the response.
             response = JSONResponse(
                 {"detail": {"code": "UNAUTHENTICATED", "message": "Sign in at /login"}},
                 status_code=401,
             )
             origin = request.headers.get("origin", "")
-            if origin in ("http://localhost:3000", "http://127.0.0.1:3000"):
+            if origin:
                 response.headers["Access-Control-Allow-Origin"] = origin
                 response.headers["Access-Control-Allow-Credentials"] = "true"
                 response.headers["Vary"] = "Origin"
