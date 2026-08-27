@@ -62,7 +62,53 @@ object LiveSync {
         }
         backendReachable = true
         val repository = GuardGraph.repository(context)
-        repository.seedIfEmpty()
+
+        // Sync agents from backend if available
+        try {
+            val agentsResp = api.getAgents()
+            if (agentsResp.isSuccessful) {
+                val remoteAgents = agentsResp.body()?.get("agents").orEmpty()
+                val parsedAgents = remoteAgents.mapNotNull { raw ->
+                    val id = raw["agentId"] as? String ?: return@mapNotNull null
+                    val name = raw["name"] as? String ?: id
+                    val statusStr = raw["status"] as? String ?: "ACTIVE"
+                    val status = try { com.agentpay.guard.core.model.AgentStatus.valueOf(statusStr) } catch (e: Exception) { com.agentpay.guard.core.model.AgentStatus.ACTIVE }
+                    val trust = (raw["trustScore"] as? Number)?.toInt() ?: 90
+                    com.agentpay.guard.core.model.Agent(
+                        agentId = id,
+                        name = name,
+                        ownerId = raw["ownerId"] as? String ?: "user_001",
+                        status = status,
+                        trustScore = trust
+                    )
+                }
+                if (parsedAgents.isNotEmpty()) {
+                    repository.upsertAgents(parsedAgents)
+                }
+            }
+        } catch (_: Exception) {}
+
+        // Sync intents from backend if available
+        try {
+            val intentsResp = api.getIntents()
+            if (intentsResp.isSuccessful) {
+                val remoteIntents = intentsResp.body()?.get("intents").orEmpty()
+                val parsedIntents = remoteIntents.mapNotNull { raw ->
+                    val id = raw["intentId"] as? String ?: return@mapNotNull null
+                    val agentId = raw["agentId"] as? String ?: return@mapNotNull null
+                    com.agentpay.guard.core.model.IntentRecord(
+                        intentId = id,
+                        agentId = agentId,
+                        goal = raw["goal"] as? String ?: "",
+                        category = raw["category"] as? String ?: "electronics",
+                        budget = (raw["budget"] as? Number)?.toLong() ?: 0L
+                    )
+                }
+                if (parsedIntents.isNotEmpty()) {
+                    repository.upsertIntents(parsedIntents)
+                }
+            }
+        } catch (_: Exception) {}
 
         var raised = 0
         val items = response.body().orEmpty()
@@ -95,6 +141,7 @@ object LiveSync {
         }
         return raised
     }
+
 
     fun pushDecision(context: Context, requestId: String, accept: Boolean) {
         scope.launch {

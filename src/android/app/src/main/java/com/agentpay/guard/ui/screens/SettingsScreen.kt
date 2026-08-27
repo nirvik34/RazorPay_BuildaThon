@@ -33,6 +33,10 @@ import com.agentpay.guard.ui.theme.GuardColors
 @Composable
 fun SettingsScreen(viewModel: GuardViewModel) {
     var lastResult by remember { mutableStateOf("Ready.") }
+    val agents by viewModel.agents.collectAsState()
+    val intents by viewModel.intents.collectAsState()
+    val activeAgentId = agents.firstOrNull { it.status == com.agentpay.guard.core.model.AgentStatus.ACTIVE }?.agentId ?: "agent-01"
+    val activeIntentId = intents.firstOrNull { it.agentId == activeAgentId }?.intentId ?: intents.firstOrNull()?.intentId
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -40,11 +44,17 @@ fun SettingsScreen(viewModel: GuardViewModel) {
     ) {
         item {
             Spacer(Modifier.height(8.dp))
-            Text("Settings & Demo", style = MaterialTheme.typography.headlineSmall)
+            Text("Settings & Dynamic Simulation", style = MaterialTheme.typography.headlineSmall)
             Text(
-                "Simulate incoming agent requests. The Guard evaluates each one locally — offline capable.",
+                "Simulate incoming agent requests. The Guard evaluates each one dynamically with active backend policies.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "Target Agent: $activeAgentId | Intent: ${activeIntentId ?: "None"}",
+                style = MaterialTheme.typography.labelMedium,
+                color = GuardColors.Brand,
+                modifier = Modifier.padding(top = 4.dp)
             )
             Spacer(Modifier.height(4.dp))
         }
@@ -53,28 +63,28 @@ fun SettingsScreen(viewModel: GuardViewModel) {
         }
         item {
             DemoButton("RUN NORMAL PURCHASE", GuardColors.Brand) {
-                viewModel.submitRemote(DemoScenarios.normal()) { lastResult = it }
+                viewModel.submitRemote(DemoScenarios.normal(activeAgentId, activeIntentId)) { lastResult = it }
             }
         }
         item {
-            DemoButton("RUN OVER-LIMIT ATTACK", GuardColors.Danger) {
-                viewModel.submitRemote(DemoScenarios.overLimit()) { lastResult = it }
+            DemoButton("RUN OVER-LIMIT TEST", GuardColors.Danger) {
+                viewModel.submitRemote(DemoScenarios.overLimit(activeAgentId)) { lastResult = it }
             }
         }
         item {
-            DemoButton("RUN INTENT MISMATCH", GuardColors.Danger) {
-                viewModel.submitRemote(DemoScenarios.intentMismatch()) { lastResult = it }
+            DemoButton("RUN INTENT MISMATCH TEST", GuardColors.Danger) {
+                viewModel.submitRemote(DemoScenarios.intentMismatch(activeAgentId, activeIntentId)) { lastResult = it }
             }
         }
         item {
-            DemoButton("RUN SPLITTING ATTACK", GuardColors.Danger) {
-                for (step in 0..2) viewModel.submitRemote(DemoScenarios.splitting(step)) { lastResult = it }
+            DemoButton("RUN SPLITTING ATTACK TEST", GuardColors.Danger) {
+                for (step in 0..2) viewModel.submitRemote(DemoScenarios.splitting(step, activeAgentId)) { lastResult = it }
                 lastResult = "Splitting sequence sent to backend (expect circumvention on 3rd)"
             }
         }
         item {
-            DemoButton("RUN COMPROMISED BURST", GuardColors.Danger) {
-                for (i in 0..9) viewModel.submitRemote(DemoScenarios.compromisedBurst(i)) { lastResult = it }
+            DemoButton("RUN COMPROMISED BURST TEST", GuardColors.Danger) {
+                for (i in 0..9) viewModel.submitRemote(DemoScenarios.compromisedBurst(i, activeAgentId)) { lastResult = it }
                 lastResult = "Burst sent to backend (expect velocity anomaly on Risk page)"
             }
         }
@@ -82,7 +92,7 @@ fun SettingsScreen(viewModel: GuardViewModel) {
             Spacer(Modifier.height(4.dp))
             Text(lastResult, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
-                "Backend sync URL: ${com.agentpay.guard.GuardGraph.backendBaseUrl} (optional — authorization works offline)",
+                "Backend sync URL: ${com.agentpay.guard.GuardGraph.backendBaseUrl}",
                 style = MaterialTheme.typography.labelSmall,
                 color = Color(0xFF98A2B3),
                 modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)
@@ -90,6 +100,7 @@ fun SettingsScreen(viewModel: GuardViewModel) {
         }
     }
 }
+
 
 @Composable
 private fun BackendUrlField() {

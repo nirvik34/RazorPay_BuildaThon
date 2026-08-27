@@ -30,6 +30,18 @@ interface GuardApi {
     @POST("agent/payment-request")
     suspend fun submitPaymentRequest(@Body body: Map<String, Any?>): Response<Map<String, Any?>>
 
+    @GET("agents")
+    suspend fun getAgents(): Response<Map<String, List<Map<String, Any?>>>>
+
+    @GET("policies")
+    suspend fun getPolicies(): Response<Map<String, List<Map<String, Any?>>>>
+
+    @GET("intents")
+    suspend fun getIntents(): Response<Map<String, List<Map<String, Any?>>>>
+
+    @GET("transactions")
+    suspend fun getTransactions(): Response<Map<String, List<Map<String, Any?>>>>
+
     companion object {
         fun create(baseUrl: String): GuardApi {
             val client = OkHttpClient.Builder()
@@ -45,3 +57,4 @@ interface GuardApi {
         }
     }
 }
+

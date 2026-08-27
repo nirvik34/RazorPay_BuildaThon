@@ -29,16 +29,16 @@ class GuardViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            repository.seedIfEmpty()
             refresh()
         }
     }
 
     fun refresh() {
         viewModelScope.launch {
+            com.agentpay.guard.sync.LiveSync.syncOnce(getApplication())
             _history.value = repository.history()
             _agents.value = repository.agents()
-            _intents.value = repository.defaultIntents()
+            _intents.value = repository.intents()
         }
     }
 
@@ -47,12 +47,12 @@ class GuardViewModel(application: Application) : AndroidViewModel(application) {
 
     fun submit(request: PaymentRequest, onDone: (TransactionRecord?) -> Unit = {}) {
         viewModelScope.launch {
-            repository.seedIfEmpty()
             repository.submitRequest(request)
             refresh()
             onDone(_history.value.firstOrNull { it.request.requestId == request.requestId })
         }
     }
+
 
     /** Sends a REAL payment request through the backend Guard engine. */
     fun submitRemote(request: PaymentRequest, onDone: (String) -> Unit = {}) {

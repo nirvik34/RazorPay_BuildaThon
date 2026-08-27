@@ -5,9 +5,9 @@ import java.util.UUID
 
 object DemoScenarios {
 
-    fun normal(): PaymentRequest = PaymentRequest(
-        agentId = "claude-shopping-01",
-        intentId = "intent_183",
+    fun normal(agentId: String = "agent-01", intentId: String? = null): PaymentRequest = PaymentRequest(
+        agentId = agentId,
+        intentId = intentId,
         merchant = "amazon",
         product = "Sony WH-1000XM5",
         amount = 14499,
@@ -15,8 +15,8 @@ object DemoScenarios {
         sessionId = "sess_demo_normal"
     )
 
-    fun overLimit(): PaymentRequest = PaymentRequest(
-        agentId = "gemini-shopping-02",
+    fun overLimit(agentId: String = "agent-01"): PaymentRequest = PaymentRequest(
+        agentId = agentId,
         merchant = "techmart",
         product = "MacBook Pro 14",
         amount = 42000,
@@ -24,8 +24,9 @@ object DemoScenarios {
         sessionId = "sess_demo_overlimit"
     )
 
-    fun intentMismatch(): PaymentRequest = PaymentRequest(
-        agentId = "gpt-assistant-03",
+    fun intentMismatch(agentId: String = "agent-01", intentId: String? = null): PaymentRequest = PaymentRequest(
+        agentId = agentId,
+        intentId = intentId,
         merchant = "flipkart",
         product = "Amazon Pay Gift Card ₹10,000",
         amount = 10000,
@@ -33,7 +34,7 @@ object DemoScenarios {
         sessionId = "sess_demo_intent"
     )
 
-    fun splitting(step: Int): PaymentRequest {
+    fun splitting(step: Int, agentId: String = "agent-01"): PaymentRequest {
         val items = listOf(
             "Logitech MX Master 3S" to 9800L,
             "Keychron K3 Keyboard" to 9700L,
@@ -41,7 +42,7 @@ object DemoScenarios {
         )
         val item = items[step.coerceIn(0, items.lastIndex)]
         return PaymentRequest(
-            agentId = "claude-shopping-01",
+            agentId = agentId,
             merchant = "croma",
             product = item.first,
             amount = item.second,
@@ -50,8 +51,8 @@ object DemoScenarios {
         )
     }
 
-    fun compromisedBurst(index: Int): PaymentRequest = PaymentRequest(
-        agentId = "claude-shopping-01",
+    fun compromisedBurst(index: Int, agentId: String = "agent-01"): PaymentRequest = PaymentRequest(
+        agentId = agentId,
         merchant = "dealsite${index % 3}",
         product = "Flash deal item ${index + 1}",
         amount = 1500 + index * 900L,
@@ -59,3 +60,4 @@ object DemoScenarios {
         sessionId = "sess_burst_" + UUID.randomUUID().toString().take(6)
     )
 }
+

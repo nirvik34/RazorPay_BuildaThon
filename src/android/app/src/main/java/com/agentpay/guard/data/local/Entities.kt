@@ -192,3 +192,34 @@ interface AuditDao {
     @Query("UPDATE audit_events SET synced = 1 WHERE eventId IN (:eventIds)")
     suspend fun markSynced(eventIds: List<String>)
 }
+
+@Entity(tableName = "intents")
+data class IntentEntity(
+    @PrimaryKey val intentId: String,
+    val agentId: String,
+    val goal: String,
+    val category: String,
+    val budget: Long
+) {
+    fun toModel() = IntentRecord(intentId, agentId, goal, category, budget)
+
+    companion object {
+        fun from(m: IntentRecord) = IntentEntity(m.intentId, m.agentId, m.goal, m.category, m.budget)
+    }
+}
+
+@Dao
+interface IntentsDao {
+    @Query("SELECT * FROM intents")
+    suspend fun all(): List<IntentEntity>
+
+    @Query("SELECT * FROM intents WHERE intentId = :id")
+    suspend fun byId(id: String): IntentEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(intent: IntentEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(intents: List<IntentEntity>)
+}
+

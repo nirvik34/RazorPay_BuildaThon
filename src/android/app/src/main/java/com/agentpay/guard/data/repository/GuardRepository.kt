@@ -18,6 +18,8 @@ import com.agentpay.guard.data.local.AuditEventEntity
 import com.agentpay.guard.data.local.DecisionEntity
 import com.agentpay.guard.data.local.DecisionsDao
 import com.agentpay.guard.data.local.GuardDatabase
+import com.agentpay.guard.data.local.IntentEntity
+import com.agentpay.guard.data.local.IntentsDao
 import com.agentpay.guard.data.local.RequestEntity
 import com.agentpay.guard.data.local.RequestsDao
 import com.agentpay.guard.security.keystore.KeystoreManager
@@ -28,20 +30,36 @@ class GuardRepository(
     private val agentsDao: AgentsDao,
     private val requestsDao: RequestsDao,
     private val decisionsDao: DecisionsDao,
-    private val auditDao: AuditDao
+    private val auditDao: AuditDao,
+    private val intentsDao: IntentsDao
 ) {
     val keystore = KeystoreManager.get()
 
     fun defaultPolicy(): Policy = GuardDatabase.defaultPolicy()
-    fun defaultIntents(): List<IntentRecord> = GuardDatabase.defaultIntents()
-
-    suspend fun seedIfEmpty() {
-        if (agentsDao.count() == 0) {
-            GuardDatabase.defaultAgents().forEach { agentsDao.upsert(com.agentpay.guard.data.local.AgentEntity.from(it)) }
-        }
+    
+    suspend fun intents(): List<IntentRecord> = withContext(Dispatchers.IO) {
+        intentsDao.all().map { entity -> entity.toModel() }
     }
 
-    suspend fun agents(): List<Agent> = withContext(Dispatchers.IO) { agentsDao.all().map { it.toModel() } }
+    suspend fun seedIfEmpty() {
+        // Dynamic: Agents & intents are fetched via LiveSync or registered dynamically.
+    }
+
+    suspend fun agents(): List<Agent> = withContext(Dispatchers.IO) { agentsDao.all().map { entity -> entity.toModel() } }
+
+    suspend fun upsertAgent(agent: Agent) = withContext(Dispatchers.IO) {
+        agentsDao.upsert(com.agentpay.guard.data.local.AgentEntity.from(agent))
+    }
+
+
+    suspend fun upsertAgents(agents: List<Agent>) = withContext(Dispatchers.IO) {
+        agents.forEach { item -> agentsDao.upsert(com.agentpay.guard.data.local.AgentEntity.from(item)) }
+    }
+
+    suspend fun upsertIntents(intentsList: List<IntentRecord>) = withContext(Dispatchers.IO) {
+        intentsList.forEach { item -> intentsDao.upsert(IntentEntity.from(item)) }
+    }
+
 
     suspend fun setAgentStatus(agentId: String, status: AgentStatus, note: String) {
         withContext(Dispatchers.IO) {
@@ -79,10 +97,18 @@ class GuardRepository(
         }
 
     suspend fun submitRequest(request: PaymentRequest): EvaluationResult = withContext(Dispatchers.IO) {
-        val agent = agentsDao.byId(request.agentId)?.toModel()
-            ?: return@withContext EvaluationResult(null, emptyList())
+        var agent = agentsDao.byId(request.agentId)?.toModel()
+        if (agent == null) {
+            val newAgent = Agent(
+                agentId = request.agentId,
+                name = request.agentId.replace("-", " ").replace("_", " ").capitalize(java.util.Locale.ROOT),
+                trustScore = 85
+            )
+            agentsDao.upsert(com.agentpay.guard.data.local.AgentEntity.from(newAgent))
+            agent = newAgent
+        }
         val policy = defaultPolicy()
-        val intents = defaultIntents()
+        val intentsList = intents()
         val history = history(request.timestampMs)
 
         val known = com.agentpay.guard.core.policy.PolicyEngine.knownMerchants(history)
@@ -92,7 +118,7 @@ class GuardRepository(
         val mlScore = com.agentpay.guard.ml.MLRuntime.predict(featureVector)
             .takeIf { it >= 0f }
         val evaluation = DecisionEngine.evaluate(
-            request, agent, policy, history, intents, request.timestampMs, mlScore
+            request, agent, policy, history, intentsList, request.timestampMs, mlScore
         )
         val decision = evaluation.decision
 
@@ -189,9 +215,10 @@ class GuardRepository(
         fun get(context: Context): GuardRepository {
             instance ?: synchronized(this) {
                 val db = GuardDatabase.build(context.applicationContext)
-                instance ?: GuardRepository(db.agentsDao(), db.requestsDao(), db.decisionsDao(), db.auditDao()).also { instance = it }
+                instance ?: GuardRepository(db.agentsDao(), db.requestsDao(), db.decisionsDao(), db.auditDao(), db.intentsDao()).also { instance = it }
             }
             return instance!!
         }
     }
 }
+
