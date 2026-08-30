@@ -22,8 +22,31 @@ from tools.catalog import CATALOG, CatalogItem, search_catalog  # noqa: E402
 API = os.environ.get("GUARD_API", "http://localhost:8000").rstrip("/")
 AGENT_ID = os.environ.get("GUARD_AGENT_ID", "claude-shopping-01")
 APPROVAL_TIMEOUT_S = int(os.environ.get("GUARD_APPROVAL_TIMEOUT", "180"))
-POLL_INTERVAL_S = 2
+POLL_INTERVAL_S = 1
 PUBLIC_URL = os.environ.get("GUARD_PUBLIC_URL", "http://localhost:8002").rstrip("/")
+
+
+def get_public_url() -> str:
+    global PUBLIC_URL
+    if PUBLIC_URL and not PUBLIC_URL.startswith("http://localhost") and not PUBLIC_URL.startswith("http://127.0.0.1"):
+        return PUBLIC_URL.rstrip("/")
+    env_url = os.environ.get("GUARD_PUBLIC_URL")
+    if env_url:
+        return env_url.rstrip("/")
+    try:
+        req = urllib.request.Request("http://127.0.0.1:4040/api/tunnels")
+        with urllib.request.urlopen(req, timeout=1) as resp:
+            data = json.loads(resp.read().decode())
+            tunnels = data.get("tunnels", [])
+            for t in tunnels:
+                if t.get("proto") in ("https", "http"):
+                    pub = t["public_url"].rstrip("/")
+                    PUBLIC_URL = pub
+                    return pub
+    except Exception:
+        pass
+    return PUBLIC_URL or "http://localhost:8002"
+
 
 SHOP_LINKS = {
     "amazon_in": "https://www.amazon.in/s?k={q}",
@@ -101,7 +124,7 @@ TOOLS = [
     },
     {
         "name": "check_payment",
-        "description": "Check the payment status of a purchase (useful after the user completes Razorpay Checkout). Optionally pass request_id; defaults to the most recent transaction.",
+        "description": "Check the payment status of a purchase (useful after the user approves on phone or completes Razorpay Checkout). Optionally pass request_id; defaults to the most recent transaction.",
         "inputSchema": {
             "type": "object",
             "properties": {"request_id": {"type": "string"}},
@@ -141,6 +164,7 @@ def _fmt_block(decision: dict) -> str:
 
 
 def _execute(request_id: str) -> str:
+    pub_url = get_public_url()
     act = http("POST", f"/guard/approvals/{request_id}/action", {"action": "accept"})
     auth_id = act["authorization"]["authorizationId"]
     pay = http(
@@ -164,7 +188,7 @@ def _execute(request_id: str) -> str:
         )
 
     # Live Razorpay order created — user completes payment via real Checkout
-    checkout_url = f"{PUBLIC_URL}/checkout/{auth_id}"
+    checkout_url = f"{pub_url}/checkout/{auth_id}"
     return (
         f"💳 APPROVED — payment link ready. Share this with the user and ask them to open it:\n"
         f"{checkout_url}\n"
@@ -210,7 +234,8 @@ def decode_custom_product(product_id: str) -> dict | None:
             "product": parts[4],
         }
     except Exception:
-        return None
+        None
+    return None
 
 
 def tool_search(args: dict) -> str:
@@ -235,45 +260,45 @@ def tool_search(args: dict) -> str:
         hits = [h for h in hits if h["price_inr"] >= min_price]
     hits.sort(key=lambda h: h["price_inr"])
 
-    if not hits or len(hits) < 2:
-        est_price = int(max_price) if isinstance(max_price, (int, float)) else 2999
-        if isinstance(min_price, (int, float)) and min_price > est_price:
-            est_price = int(min_price)
+    # Always generate custom web search product options so user can buy anything
+    est_price = int(max_price) if isinstance(max_price, (int, float)) else 2999
+    if isinstance(min_price, (int, float)) and min_price > est_price:
+        est_price = int(min_price)
 
-        cat = infer_category(query)
-        q_title = query.strip().title()
+    cat = infer_category(query)
+    q_title = query.strip().title()
 
-        amazon_pid = encode_custom_product("amazon", cat, est_price, q_title)
-        flipkart_pid = encode_custom_product("flipkart", cat, max(1, int(est_price * 0.95)), q_title)
+    amazon_pid = encode_custom_product("amazon", cat, est_price, q_title)
+    flipkart_pid = encode_custom_product("flipkart", cat, max(1, int(est_price * 0.95)), q_title)
 
-        global_hits = [
-            {
-                "product_id": amazon_pid,
-                "name": f"{q_title} (Amazon)",
-                "merchant": "amazon",
-                "category": cat,
-                "price_inr": est_price,
-                "source": "Global Web Search",
-            },
-            {
-                "product_id": flipkart_pid,
-                "name": f"{q_title} (Flipkart)",
-                "merchant": "flipkart",
-                "category": cat,
-                "price_inr": max(1, int(est_price * 0.95)),
-                "source": "Global Web Search",
-            },
-        ]
-        existing_names = {h["name"].lower() for h in hits}
-        for gh in global_hits:
-            if gh["name"].lower() not in existing_names:
-                hits.append(gh)
+    global_hits = [
+        {
+            "product_id": amazon_pid,
+            "name": f"{q_title} (Amazon)",
+            "merchant": "amazon",
+            "category": cat,
+            "price_inr": est_price,
+            "source": "Global Web Search",
+        },
+        {
+            "product_id": flipkart_pid,
+            "name": f"{q_title} (Flipkart)",
+            "merchant": "flipkart",
+            "category": cat,
+            "price_inr": max(1, int(est_price * 0.95)),
+            "source": "Global Web Search",
+        },
+    ]
+    existing_names = {h["name"].lower() for h in hits}
+    for gh in global_hits:
+        if gh["name"].lower() not in existing_names:
+            hits.append(gh)
 
     response: dict = {
         "results": hits[:8],
         "buy_online_search_links": shop_links(query),
         "note": (
-            "Global web search power enabled. You can purchase any item listed in results using its product_id, "
+            "Global web search power enabled. You can purchase ANY item listed in results using its product_id, "
             "or purchase ANY custom product by providing product_name, amount, merchant, and category."
         ),
     }
@@ -288,13 +313,46 @@ def tool_check_payment(args: dict) -> str:
         if not rows:
             return "No transactions found."
         request_id = rows[0]["request"]["requestId"]
+
     status = http("GET", f"/agent/payment-status/{request_id}")
     payment = status.get("payment")
     request = status.get("request", {})
+    decision_info = status.get("decision", {})
+    decision = decision_info.get("decision")
+    resolution = status.get("resolution")
+
+    if resolution and resolution.get("action") == "reject":
+        return f"❌ Purchase request {request_id} was DECLINED by the user on their phone."
+
+    if resolution and resolution.get("action") == "accept":
+        if not payment:
+            # User accepted on phone! Complete execution and return checkout link.
+            return _execute(request_id)
+        else:
+            lines = [
+                f"request: {request_id}",
+                f"product: {request.get('product')} ₹{request.get('amount')}",
+                f"decision: {decision}",
+                f"payment: {payment.get('id')} — {payment.get('status')}"
+                + (f" via {payment['method']}" if payment.get("method") else ""),
+            ]
+            if payment.get("status") == "awaiting_checkout":
+                pub_url = get_public_url()
+                auth_id = payment.get("authorizationId") or payment.get("id")
+                lines.append(f"💳 Payment link ready: {pub_url}/checkout/{auth_id}")
+                lines.append("User has not completed Razorpay Checkout yet.")
+            return "\n".join(lines)
+
+    if decision == "USER_APPROVAL" and not resolution:
+        return (
+            f"⏳ Request {request_id} for {request.get('product')} (₹{request.get('amount')}) is STILL PENDING approval on the user's phone.\n"
+            f"Please tap ACCEPT in the AgentPay Guard app on your phone."
+        )
+
     lines = [
         f"request: {request_id}",
         f"product: {request.get('product')} ₹{request.get('amount')}",
-        f"decision: {status.get('decision', {}).get('decision')}",
+        f"decision: {decision}",
     ]
     if payment:
         lines += [
@@ -308,8 +366,8 @@ def tool_check_payment(args: dict) -> str:
     return "\n".join(lines)
 
 
-def _wait_for_user(request_id: str) -> dict | None:
-    deadline = time.time() + APPROVAL_TIMEOUT_S
+def _wait_for_user(request_id: str, timeout_s: float = 10.0) -> dict | None:
+    deadline = time.time() + timeout_s
     while time.time() < deadline:
         status = http("GET", f"/agent/payment-status/{request_id}")
         if status.get("resolution"):
@@ -399,13 +457,18 @@ def tool_purchase(args: dict) -> str:
             f"[agentpay] approval request sent to phone: {item.product} ₹{item.price} ({rid})",
             file=sys.stderr,
         )
-        status = _wait_for_user(rid)
+        status = _wait_for_user(rid, timeout_s=10.0)
         if status is None:
             return (
-                f"⏳ The user did not respond within {APPROVAL_TIMEOUT_S}s. "
-                f"The purchase is still pending in AgentPay Guard — no payment was made."
+                f"⏳ AGENTPAY GUARD — APPROVAL SENT TO USER'S PHONE\n"
+                f"Request ID: {rid}\n"
+                f"Item: {item.product} (₹{item.price})\n"
+                f"Merchant: {item.merchant}\n\n"
+                f"An approval prompt has been sent to the AgentPay Guard app on your phone.\n"
+                f"Please tap ACCEPT in your app. "
+                f"Once accepted, ask me to check payment or call check_payment(request_id='{rid}') to get your Razorpay Checkout link."
             )
-        if status["resolution"].get("action") == "reject":
+        if status.get("resolution", {}).get("action") == "reject":
             return (
                 "❌ The user DECLINED this purchase in AgentPay Guard. "
                 "No payment was attempted. Do not retry without asking the user first."
