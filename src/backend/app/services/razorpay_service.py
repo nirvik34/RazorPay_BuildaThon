@@ -25,8 +25,11 @@ async def create_order(authorization: dict[str, Any]) -> dict[str, Any]:
             "currency": "INR",
             "receipt": authorization["authorizationId"],
             "notes": {
-                "agentId": authorization["agentId"],
-                "requestId": authorization["requestId"],
+                "agentId": authorization.get("agentId", ""),
+                "requestId": authorization.get("requestId", ""),
+                "merchant": authorization.get("merchant", ""),
+                "destinationSeller": authorization.get("merchant", "").title(),
+                "product": authorization.get("product", ""),
             },
         }
         async with httpx.AsyncClient(auth=_auth(), timeout=15) as client:

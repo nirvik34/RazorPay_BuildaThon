@@ -150,7 +150,7 @@ function pay() {{
   var rzp = new Razorpay({{
     key: "{key_id}",
     order_id: ORDER,
-    name: "AgentPay Guard",
+    name: "{merchant_title} (via AgentPay Guard)",
     description: "{product}",
     theme: {{ color: "#0D94FB" }},
     prefill: {{ name: "AgentPay User" }},
@@ -214,9 +214,11 @@ def checkout_page(authorization_id: str) -> Response:
             "✅ This payment was already completed and captured.",
             media_type="text/plain",
         )
+    merchant_name = info.get("merchant", "Seller").title()
     html = CHECKOUT_PAGE.format(
         product=info["product"],
         merchant=info["merchant"],
+        merchant_title=merchant_name,
         order_id=info["orderId"],
         key_id=info["keyId"],
         auth_id=authorization_id,
