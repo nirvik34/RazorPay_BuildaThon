@@ -44,7 +44,7 @@ interface GuardApi {
     suspend fun getTransactions(): Response<Map<String, List<Map<String, Any>>>>
 
     companion object {
-        fun create(baseUrl: String): GuardApi {
+        fun create(baseUrl: String, deviceToken: String? = null): GuardApi {
             var normalized = baseUrl.trim().trimEnd('/')
             if (normalized.isNotEmpty() && !normalized.startsWith("http://") && !normalized.startsWith("https://")) {
                 normalized = if (normalized.contains("ngrok")) "https://$normalized" else "http://$normalized"
@@ -55,11 +55,13 @@ interface GuardApi {
             val client = OkHttpClient.Builder()
                 .addInterceptor { chain ->
                     val original = chain.request()
-                    val request = original.newBuilder()
+                    val builder = original.newBuilder()
                         .header("ngrok-skip-browser-warning", "true")
                         .header("User-Agent", "AgentPayGuard/1.0")
-                        .build()
-                    chain.proceed(request)
+                    if (!deviceToken.isNullOrBlank() && original.header("Authorization") == null) {
+                        builder.header("Authorization", "Bearer $deviceToken")
+                    }
+                    chain.proceed(builder.build())
                 }
                 .connectTimeout(10, TimeUnit.SECONDS)
                 .readTimeout(15, TimeUnit.SECONDS)

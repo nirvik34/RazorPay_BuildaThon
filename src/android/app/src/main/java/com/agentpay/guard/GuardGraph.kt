@@ -15,9 +15,14 @@ object GuardGraph {
     private const val PREFS = "guard_settings"
     private const val KEY_BACKEND_URL = "backend_base_url"
 
+    private const val KEY_DEVICE_TOKEN = "device_token"
+
     const val DEFAULT_BACKEND_URL = "http://10.0.2.2:8000"
 
     @Volatile var backendBaseUrl: String = DEFAULT_BACKEND_URL
+        private set
+
+    @Volatile var deviceToken: String? = null
         private set
 
     @Volatile private var apiClient: GuardApi? = null
@@ -27,7 +32,7 @@ object GuardGraph {
     /** Cached Retrofit client — rebuilt only when the backend URL changes. */
     fun api(context: Context): GuardApi? = try {
         synchronized(this) {
-            apiClient ?: GuardApi.create(backendBaseUrl).also { apiClient = it }
+            apiClient ?: GuardApi.create(backendBaseUrl, deviceToken).also { apiClient = it }
         }
     } catch (e: Exception) {
         null
@@ -46,6 +51,14 @@ object GuardGraph {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val saved = prefs.getString(KEY_BACKEND_URL, DEFAULT_BACKEND_URL) ?: DEFAULT_BACKEND_URL
         backendBaseUrl = normalizeUrl(saved)
+        deviceToken = prefs.getString(KEY_DEVICE_TOKEN, null)
+    }
+
+    fun setDeviceToken(context: Context, token: String?) {
+        deviceToken = token
+        synchronized(this) { apiClient = null }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(KEY_DEVICE_TOKEN, token).apply()
     }
 
     fun setBackendBaseUrl(context: Context, url: String) {

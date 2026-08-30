@@ -188,6 +188,8 @@ async def auth_middleware(request: Request, call_next):
     if request.method != "OPTIONS" and any(
         path == p or path.startswith(p + "/") for p in PROTECTED_PREFIXES
     ):
+        if not auth.owner_exists():
+            return await call_next(request)
         user = auth.authenticate_request_headers(request.headers.get("authorization"))
         if not user:
             response = JSONResponse(
