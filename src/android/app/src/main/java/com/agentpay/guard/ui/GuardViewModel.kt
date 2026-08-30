@@ -35,7 +35,9 @@ class GuardViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refresh() {
         viewModelScope.launch {
-            com.agentpay.guard.sync.LiveSync.syncOnce(getApplication())
+            try {
+                com.agentpay.guard.sync.LiveSync.syncOnce(getApplication())
+            } catch (_: Exception) {}
             _history.value = repository.history()
             _agents.value = repository.agents()
             _intents.value = repository.intents()

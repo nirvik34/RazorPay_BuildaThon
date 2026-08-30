@@ -55,7 +55,12 @@ object LiveSync {
 
     suspend fun syncOnce(context: Context): Int {
         val api = GuardGraph.api(context) ?: return 0
-        val response = api.pending()
+        val response = try {
+            api.pending()
+        } catch (e: Exception) {
+            backendReachable = false
+            return 0
+        }
         if (!response.isSuccessful) {
             backendReachable = false
             return 0
