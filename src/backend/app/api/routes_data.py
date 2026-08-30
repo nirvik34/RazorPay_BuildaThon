@@ -63,11 +63,12 @@ class SyncAuditIn(BaseModel):
 
 
 @router.post("/sync/audit")
-async def sync_audit(payload: SyncAuditIn) -> dict:
+async def sync_audit(payload: list[dict] | SyncAuditIn) -> dict:
     accepted = 0
+    events_list = payload if isinstance(payload, list) else payload.events
     with LOCK:
         state = store.state
-        for event in payload.events:
+        for event in events_list:
             request_id = event.get("requestId")
             if not request_id:
                 continue
@@ -78,6 +79,7 @@ async def sync_audit(payload: SyncAuditIn) -> dict:
                 accepted += 1
         store.save()
     return {"ok": True, "accepted": accepted}
+
 
 
 def _txn_view(state: dict) -> list[dict]:

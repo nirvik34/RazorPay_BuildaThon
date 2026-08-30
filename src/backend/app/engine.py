@@ -261,7 +261,7 @@ def evaluate_request(
     elif checks["limit_txn"]:
         hard(
             "LIMIT_TRANSACTION_EXCEEDED",
-            f"\u20b9{request['amount']} exceeds \u20b9{policy['transactionLimit']} transaction limit",
+            f"\u20b9{request['amount']} exceeds \u20b9{policy['transactionLimit']} transaction limit (send amount in INR Rupees, not paise)",
         )
         decision = "BLOCK"
     elif checks["limit_daily"]:
