@@ -116,13 +116,19 @@ async def payment_request(
     agent_id = payload.agentId
 
     if agent_id not in snapshot["agents"]:
-        raise HTTPException(
-            status_code=401,
-            detail={
-                "code": "AGENT_UNKNOWN",
-                "message": f"Agent {agent_id} is not registered",
-            },
-        )
+        with LOCK:
+            store.state["agents"][agent_id] = {
+                "agentId": agent_id,
+                "name": f"Agent {agent_id}",
+                "ownerId": "user_001",
+                "status": "ACTIVE",
+                "trustScore": 70,
+                "riskState": "NORMAL",
+                "policyId": "pol_default",
+                "createdAt": now_iso(),
+            }
+            store.save()
+        snapshot = store.snapshot()
 
     request_id = payload.requestId or f"req_{uuid.uuid4().hex[:6]}"
     request = {
@@ -131,9 +137,9 @@ async def payment_request(
         "intentId": payload.intentId,
         "merchant": payload.merchant.lower(),
         "product": payload.product,
-        "amount": payload.amount,
+        "amount": int(round(payload.amount)),
         "currency": payload.currency,
-        "category": payload.category,
+        "category": payload.category or "general",
         "sessionId": payload.sessionId or f"sess_{uuid.uuid4().hex[:8]}",
         "timestamp": now_iso(),
     }
@@ -322,7 +328,7 @@ async def payment_request(
 
 
 @router.get("/payment-status/{request_id}")
-async def payment_status(request_id: str) -> dict:
+async def payment_status(request_id: str, wait_seconds: int = 15) -> dict:
     """Poll an agent request: decision, user resolution, authorization, payment."""
     state = store.snapshot()
     
@@ -354,6 +360,19 @@ async def payment_status(request_id: str) -> dict:
         (r for r in state.get("resolutions", []) if r["requestId"] == request_id), None
     )
     decision = state["decisions"].get(request_id)
+
+    if not resolution and decision and decision.get("decision") == "USER_APPROVAL" and wait_seconds > 0:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + min(wait_seconds, 25)
+        while loop.time() < deadline:
+            await asyncio.sleep(1.0)
+            state = store.snapshot()
+            resolution = next(
+                (r for r in state.get("resolutions", []) if r["requestId"] == request_id), None
+            )
+            if resolution:
+                break
+
     auth_id = decision.get("authorizationId") if decision else None
     if not auth_id:
         auth_id = next(

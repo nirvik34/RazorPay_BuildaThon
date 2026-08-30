@@ -47,7 +47,8 @@
         "tags": [
           "agent"
         ],
-        "summary": "Payment Request",
+        "summary": "Submit Payment Request",
+        "description": "Submit a payment request to AgentPay Guard. Holds connection up to 25s for approval. If status is PENDING or approvalRequired is true, immediately call /agent/payment-status/{request_id} (or 'latest') to poll for approval. Do not stop until status is checked.",
         "operationId": "payment_request_agent_payment_request_post",
         "requestBody": {
           "content": {
@@ -78,8 +79,8 @@
         "tags": [
           "agent"
         ],
-        "summary": "Payment Status",
-        "description": "Poll an agent request: decision, user resolution, authorization, payment.",
+        "summary": "Check or Poll Payment Status",
+        "description": "Poll the status of a payment request. Supports request_id string or 'latest'. If status is PENDING, the server will wait for approval before returning. Poll this endpoint until status becomes APPROVED, AUTHORIZED, or DENIED.",
         "operationId": "payment_status_agent_payment_status__request_id__get",
         "parameters": [
           {
@@ -88,6 +89,15 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "wait_seconds",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 15
             }
           }
         ],

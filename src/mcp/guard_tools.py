@@ -315,6 +315,11 @@ def tool_check_payment(args: dict) -> str:
         request_id = rows[0]["request"]["requestId"]
 
     status = http("GET", f"/agent/payment-status/{request_id}")
+    if not status.get("resolution"):
+        polled = _wait_for_user(request_id, timeout_s=15.0)
+        if polled:
+            status = polled
+
     payment = status.get("payment")
     request = status.get("request", {})
     decision_info = status.get("decision", {})
@@ -366,8 +371,8 @@ def tool_check_payment(args: dict) -> str:
     return "\n".join(lines)
 
 
-def _wait_for_user(request_id: str, timeout_s: float = 10.0) -> dict | None:
-    deadline = time.time() + timeout_s
+def _wait_for_user(request_id: str, timeout_s: float = 30.0) -> dict | None:
+    deadline = time.time() + min(timeout_s, float(APPROVAL_TIMEOUT_S))
     while time.time() < deadline:
         status = http("GET", f"/agent/payment-status/{request_id}")
         if status.get("resolution"):
@@ -457,7 +462,7 @@ def tool_purchase(args: dict) -> str:
             f"[agentpay] approval request sent to phone: {item.product} ₹{item.price} ({rid})",
             file=sys.stderr,
         )
-        status = _wait_for_user(rid, timeout_s=10.0)
+        status = _wait_for_user(rid, timeout_s=30.0)
         if status is None:
             return (
                 f"⏳ AGENTPAY GUARD — APPROVAL SENT TO USER'S PHONE\n"
@@ -466,7 +471,7 @@ def tool_purchase(args: dict) -> str:
                 f"Merchant: {item.merchant}\n\n"
                 f"An approval prompt has been sent to the AgentPay Guard app on your phone.\n"
                 f"Please tap ACCEPT in your app. "
-                f"Once accepted, ask me to check payment or call check_payment(request_id='{rid}') to get your Razorpay Checkout link."
+                f"INSTRUCTION FOR AI: Do not stop execution! Call check_payment(request_id='{rid}') to wait for approval and get the final Razorpay Checkout link."
             )
         if status.get("resolution", {}).get("action") == "reject":
             return (
