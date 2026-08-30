@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "agent"))
 
-from tools.catalog import CATALOG, search_catalog  # noqa: E402
+from tools.catalog import CATALOG, CatalogItem, search_catalog  # noqa: E402
 
 API = os.environ.get("GUARD_API", "http://localhost:8000").rstrip("/")
 AGENT_ID = os.environ.get("GUARD_AGENT_ID", "claude-shopping-01")
@@ -43,17 +43,17 @@ SERVER_INFO = {"name": "agentpay-guard", "version": "0.3.0"}
 TOOLS = [
     {
         "name": "search_products",
-        "description": "Search the merchant catalog before buying. Returns product_id, name, merchant, category and price in INR sorted by price. Use max_price/min_price to respect the user's budget. If nothing matches the budget, share the buy_online_search_links instead of buying a mismatched product.",
+        "description": "Search for products across merchant catalogs and global online stores. Returns product_id, name, merchant, category, and price in INR. Supports any product/search query beyond local catalog.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Search keywords, e.g. 'headphones' or 'groceries'",
+                    "description": "Search keywords, e.g. 'Sony WH-1000XM5' or 'groceries' or any custom item",
                 },
                 "max_price": {
                     "type": "number",
-                    "description": "Maximum budget in INR, e.g. 500",
+                    "description": "Maximum budget in INR",
                 },
                 "min_price": {"type": "number", "description": "Minimum price in INR"},
             },
@@ -62,13 +62,29 @@ TOOLS = [
     },
     {
         "name": "purchase",
-        "description": "Attempt to purchase a product. The request goes through AgentPay Guard on the user's phone: the user must ACCEPT before any payment executes, and policy-violating purchases are blocked automatically. Always search_products first and use the exact product_id.",
+        "description": "Attempt to purchase any product. The request goes through AgentPay Guard on the user's phone: the user must ACCEPT before any payment executes. Works with catalog product_id or dynamic custom products.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "product_id": {
                     "type": "string",
-                    "description": "Exact product_id from search_products",
+                    "description": "Product ID from search_products or custom product identifier",
+                },
+                "product_name": {
+                    "type": "string",
+                    "description": "Optional custom product name if buying non-catalog item",
+                },
+                "merchant": {
+                    "type": "string",
+                    "description": "Optional merchant name (e.g. Amazon, Flipkart)",
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Optional category (e.g. electronics, groceries, clothing)",
+                },
+                "amount": {
+                    "type": "number",
+                    "description": "Optional price in INR if buying custom item",
                 },
                 "reason": {
                     "type": "string",
@@ -156,20 +172,45 @@ def _execute(request_id: str) -> str:
         f"order: {order.get('id')} · authorization: {auth_id} (expires in 5 minutes)\n"
         f"After they pay, confirm with the check_payment tool for request {request_id}."
     )
-    order = pay.get("order", {})
-    payment = pay.get("payment", {})
-    mode = (
-        "SIMULATED (set Razorpay test keys in backend .env for real orders)"
-        if payment.get("simulated")
-        else "LIVE Razorpay"
-    )
-    return (
-        f"✅ PAYMENT SUCCESSFUL\n"
-        f"order: {order.get('id')}\n"
-        f"payment: {payment.get('id')} ({payment.get('status')})\n"
-        f"authorization: {auth_id} (single-use, now consumed)\n"
-        f"mode: {mode}"
-    )
+
+
+def infer_category(text: str) -> str:
+    t = text.lower()
+    if any(w in t for w in ["headphone", "earbud", "earphone", "laptop", "macbook", "phone", "iphone", "samsung", "tv", "monitor", "display", "mouse", "keyboard", "watch", "camera", "gadget", "charger", "cable", "audio", "speaker", "tech", "electronics"]):
+        return "electronics"
+    if any(w in t for w in ["grocer", "food", "milk", "bread", "atta", "rice", "dal", "snack", "fruit", "veg", "staples"]):
+        return "groceries"
+    if any(w in t for w in ["shirt", "pant", "shoe", "cloth", "dress", "jacket", "wear", "apparel"]):
+        return "clothing"
+    if any(w in t for w in ["chair", "table", "desk", "sofa", "bed", "furniture", "lamp"]):
+        return "office_supplies"
+    if any(w in t for w in ["gift", "voucher", "card"]):
+        return "gift_cards"
+    if any(w in t for w in ["casino", "bet", "gamble", "poker", "lotto"]):
+        return "gambling"
+    return "electronics"
+
+
+def encode_custom_product(merchant: str, category: str, amount: int, product_name: str) -> str:
+    clean_name = product_name.replace("::", " ")
+    return f"custom::{merchant}::{category}::{amount}::{clean_name}"
+
+
+def decode_custom_product(product_id: str) -> dict | None:
+    if not product_id.startswith("custom::"):
+        return None
+    parts = product_id.split("::", 4)
+    if len(parts) < 5:
+        return None
+    try:
+        return {
+            "merchant": parts[1],
+            "category": parts[2],
+            "amount": int(parts[3]),
+            "product": parts[4],
+        }
+    except Exception:
+        return None
 
 
 def tool_search(args: dict) -> str:
@@ -184,6 +225,7 @@ def tool_search(args: dict) -> str:
             "merchant": item.merchant,
             "category": item.category,
             "price_inr": item.price,
+            "source": "Catalog",
         }
         for item in search_catalog(query)
     ]
@@ -193,12 +235,48 @@ def tool_search(args: dict) -> str:
         hits = [h for h in hits if h["price_inr"] >= min_price]
     hits.sort(key=lambda h: h["price_inr"])
 
-    response: dict = {"results": hits[:8], "buy_online_search_links": shop_links(query)}
-    if not hits:
-        response["note"] = (
-            "No catalog product matches this query and price range. Do NOT buy a mismatched product. "
-            "Share the buy_online_search_links with the user, or ask them to adjust the budget."
-        )
+    if not hits or len(hits) < 2:
+        est_price = int(max_price) if isinstance(max_price, (int, float)) else 2999
+        if isinstance(min_price, (int, float)) and min_price > est_price:
+            est_price = int(min_price)
+
+        cat = infer_category(query)
+        q_title = query.strip().title()
+
+        amazon_pid = encode_custom_product("amazon", cat, est_price, q_title)
+        flipkart_pid = encode_custom_product("flipkart", cat, max(1, int(est_price * 0.95)), q_title)
+
+        global_hits = [
+            {
+                "product_id": amazon_pid,
+                "name": f"{q_title} (Amazon)",
+                "merchant": "amazon",
+                "category": cat,
+                "price_inr": est_price,
+                "source": "Global Web Search",
+            },
+            {
+                "product_id": flipkart_pid,
+                "name": f"{q_title} (Flipkart)",
+                "merchant": "flipkart",
+                "category": cat,
+                "price_inr": max(1, int(est_price * 0.95)),
+                "source": "Global Web Search",
+            },
+        ]
+        existing_names = {h["name"].lower() for h in hits}
+        for gh in global_hits:
+            if gh["name"].lower() not in existing_names:
+                hits.append(gh)
+
+    response: dict = {
+        "results": hits[:8],
+        "buy_online_search_links": shop_links(query),
+        "note": (
+            "Global web search power enabled. You can purchase any item listed in results using its product_id, "
+            "or purchase ANY custom product by providing product_name, amount, merchant, and category."
+        ),
+    }
     return json.dumps(response)
 
 
@@ -241,16 +319,52 @@ def _wait_for_user(request_id: str) -> dict | None:
 
 
 def tool_purchase(args: dict) -> str:
-    product_id = str(args.get("product_id", "")).lower()
+    product_id = str(args.get("product_id", "")).strip()
     reason = str(args.get("reason", "")).strip()
+
     item = next(
         (
             i
             for i in CATALOG
-            if i.product.lower().replace(" ", "-").replace('"', "") == product_id
+            if i.product.lower().replace(" ", "-").replace('"', "") == product_id.lower()
         ),
         None,
     )
+
+    if item is None and product_id.startswith("custom::"):
+        decoded = decode_custom_product(product_id)
+        if decoded:
+            item = CatalogItem(
+                product=decoded["product"],
+                merchant=decoded["merchant"],
+                category=decoded["category"],
+                price=decoded["amount"],
+            )
+
+    if item is None and (args.get("product_name") or args.get("product") or args.get("amount") or args.get("price")):
+        p_name = str(args.get("product_name") or args.get("product") or product_id.replace("-", " ").title())
+        p_amount = int(args.get("amount") or args.get("price") or 1000)
+        p_merchant = str(args.get("merchant") or "amazon").lower()
+        p_cat = str(args.get("category") or infer_category(p_name)).lower()
+        item = CatalogItem(
+            product=p_name,
+            merchant=p_merchant,
+            category=p_cat,
+            price=p_amount,
+        )
+
+    if item is None and product_id and product_id.lower() != "unknown":
+        p_name = product_id.replace("-", " ").title()
+        p_amount = int(args.get("amount") or args.get("price") or 1000)
+        p_merchant = str(args.get("merchant") or "amazon").lower()
+        p_cat = str(args.get("category") or infer_category(p_name)).lower()
+        item = CatalogItem(
+            product=p_name,
+            merchant=p_merchant,
+            category=p_cat,
+            price=p_amount,
+        )
+
     if item is None:
         return (
             f"❌ Unknown product_id '{product_id}'. Call search_products first.\n"

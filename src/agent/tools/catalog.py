@@ -188,17 +188,22 @@ CATALOG: list[CatalogItem] = [
 ]
 
 
+import re
+
 def search_catalog(query: str) -> list[CatalogItem]:
     q = query.lower().strip()
     if not q:
         return []
-    words = q.split()
+    words = [w for w in re.findall(r'\w+', q) if len(w) > 0]
+    if not words:
+        return []
     scored: list[tuple[int, CatalogItem]] = []
     for item in CATALOG:
         haystack = " ".join(
             [item.product, item.merchant, item.category, *item.keywords]
         ).lower()
-        score = sum(1 for w in words if w in haystack)
+        haystack_tokens = set(re.findall(r'\w+', haystack))
+        score = sum(1 for w in words if w in haystack_tokens)
         if score > 0:
             scored.append((score, item))
     scored.sort(key=lambda pair: -pair[0])
