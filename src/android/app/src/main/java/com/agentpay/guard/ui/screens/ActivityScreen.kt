@@ -63,6 +63,7 @@ private fun ActivityCard(record: TransactionRecord) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .height(androidx.compose.foundation.layout.IntrinsicSize.Min)
             .clip(RoundedCornerShape(6.dp))
             .background(MaterialTheme.colorScheme.surface)
     ) {

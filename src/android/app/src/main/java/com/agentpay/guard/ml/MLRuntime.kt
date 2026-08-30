@@ -106,8 +106,14 @@ object MLRuntime {
     }
 
     private fun walkTree(node: JSONObject, x: FloatArray): Float {
-        val value = node.opt("value")
-        if (value != null) return if (value is Double) value.toFloat() else value.toString().toFloat()
+        if (node.has("value") && !node.isNull("value")) {
+            val v = node.opt("value")
+            return when (v) {
+                is Double -> v.toFloat()
+                is Number -> v.toFloat()
+                else -> v?.toString()?.toFloatOrNull() ?: 0f
+            }
+        }
         val idx = featureNames.indexOf(node.getString("feature"))
         val threshold = node.getDouble("threshold").toFloat()
         val goLeft = idx >= 0 && x.getOrElse(idx) { 0f } <= threshold

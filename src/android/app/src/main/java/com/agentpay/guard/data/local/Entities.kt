@@ -21,6 +21,42 @@ import com.agentpay.guard.core.model.RiskState
 import com.agentpay.guard.core.model.TransactionRecord
 import org.json.JSONArray
 
+private fun safeAgentStatus(str: String?): AgentStatus {
+    if (str.isNullOrBlank()) return AgentStatus.ACTIVE
+    return try {
+        AgentStatus.valueOf(str.uppercase())
+    } catch (_: Exception) {
+        AgentStatus.ACTIVE
+    }
+}
+
+private fun safeRiskState(str: String?): RiskState {
+    if (str.isNullOrBlank()) return RiskState.NORMAL
+    return try {
+        RiskState.valueOf(str.uppercase())
+    } catch (_: Exception) {
+        RiskState.NORMAL
+    }
+}
+
+private fun safeDecisionType(str: String?): DecisionType {
+    if (str.isNullOrBlank()) return DecisionType.BLOCK
+    return try {
+        DecisionType.valueOf(str.uppercase())
+    } catch (_: Exception) {
+        DecisionType.BLOCK
+    }
+}
+
+private fun safeSeverity(str: String?): ReasonCode.Severity {
+    if (str.isNullOrBlank()) return ReasonCode.Severity.WARN
+    return try {
+        ReasonCode.Severity.valueOf(str.uppercase())
+    } catch (_: Exception) {
+        ReasonCode.Severity.WARN
+    }
+}
+
 @Entity(tableName = "agents")
 data class AgentEntity(
     @PrimaryKey val agentId: String,
@@ -34,8 +70,8 @@ data class AgentEntity(
 ) {
     fun toModel(): Agent = Agent(
         agentId = agentId, name = name, ownerId = ownerId,
-        status = AgentStatus.valueOf(status), trustScore = trustScore,
-        riskState = RiskState.valueOf(riskState), policyId = policyId
+        status = safeAgentStatus(status), trustScore = trustScore,
+        riskState = safeRiskState(riskState), policyId = policyId
     )
 
     companion object {
@@ -85,12 +121,28 @@ data class DecisionEntity(
     val denied: Boolean = false
 ) {
     fun toModel(): GuardDecision {
-        val array = JSONArray(reasonCodesJson)
-        val reasons = (0 until array.length()).map { i ->
-            val obj = array.getJSONObject(i)
-            ReasonCode(obj.getString("code"), obj.getString("label"), ReasonCode.Severity.valueOf(obj.getString("severity")))
-        }
-        return GuardDecision(requestId, DecisionType.valueOf(decision), reasons, riskScore, intentScore, circumventionScore, policyVersion, authorizationId, timestampMs)
+        val reasons = mutableListOf<ReasonCode>()
+        try {
+            val array = JSONArray(reasonCodesJson)
+            for (i in 0 until array.length()) {
+                val obj = array.optJSONObject(i) ?: continue
+                val code = obj.optString("code", "UNKNOWN")
+                val label = obj.optString("label", "Unknown reason")
+                val severityStr = obj.optString("severity", "WARN")
+                reasons.add(ReasonCode(code, label, safeSeverity(severityStr)))
+            }
+        } catch (_: Exception) {}
+        return GuardDecision(
+            requestId,
+            safeDecisionType(decision),
+            reasons,
+            riskScore,
+            intentScore,
+            circumventionScore,
+            policyVersion,
+            authorizationId,
+            timestampMs
+        )
     }
 
     companion object {
@@ -222,4 +274,5 @@ interface IntentsDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(intents: List<IntentEntity>)
 }
+
 

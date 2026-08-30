@@ -40,13 +40,13 @@ object NotificationHelper {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val contentPi = PendingIntent.getActivity(
-            context, notificationId, contentIntent,
+            context, notificationId * 10, contentIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val homeIntent = Intent(context, MainActivity::class.java)
         val homePi = PendingIntent.getActivity(
-            context, notificationId + 1, homeIntent,
+            context, notificationId * 10 + 1, homeIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -80,7 +80,7 @@ object NotificationHelper {
         }
         val pi = PendingIntent.getBroadcast(
             context,
-            id + if (accept) 10 else 20,
+            id * 10 + if (accept) 2 else 3,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )

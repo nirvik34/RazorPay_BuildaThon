@@ -101,7 +101,7 @@ class GuardRepository(
         if (agent == null) {
             val newAgent = Agent(
                 agentId = request.agentId,
-                name = request.agentId.replace("-", " ").replace("_", " ").capitalize(java.util.Locale.ROOT),
+                name = request.agentId.replace("-", " ").replace("_", " ").replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.ROOT) else it.toString() },
                 trustScore = 85
             )
             agentsDao.upsert(com.agentpay.guard.data.local.AgentEntity.from(newAgent))
