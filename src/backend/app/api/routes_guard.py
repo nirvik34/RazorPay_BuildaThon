@@ -181,14 +181,20 @@ async def approval_action(request_id: str, payload: DecisionAction) -> dict:
     return result
 
 
-@router.post("/payments/execute")
-async def execute(payload: ExecuteIn) -> dict:
+async def execute_authorization(authorization_id: str, allow_idempotent: bool = False) -> dict:
     with LOCK:
         state = store.state
-        auth = state["authorizations"].get(payload.authorizationId)
+        auth = state["authorizations"].get(authorization_id)
         if not auth:
             raise HTTPException(status_code=404, detail={"code": "AUTH_NOT_FOUND"})
         if auth["status"] == "USED":
+            if allow_idempotent:
+                existing_payment = next(
+                    (p for p in state.get("payments", {}).values() if p.get("authorizationId") == authorization_id),
+                    None,
+                )
+                if existing_payment:
+                    return {"ok": True, "order": {}, "payment": existing_payment}
             raise HTTPException(
                 status_code=409,
                 detail={
@@ -239,10 +245,10 @@ async def execute(payload: ExecuteIn) -> dict:
     with LOCK:
         state = store.state
         state["payments"] = state.get("payments", {})
-        payment_key = payment.get("id") or f"pending_{payload.authorizationId}"
+        payment_key = payment.get("id") or f"pending_{authorization_id}"
         state["payments"][payment_key] = {
             **payment,
-            "authorizationId": payload.authorizationId,
+            "authorizationId": authorization_id,
             "requestId": request_id,
         }
         state["audit"][request_id].append(
@@ -267,6 +273,12 @@ async def execute(payload: ExecuteIn) -> dict:
         },
     )
     return {"ok": True, "order": order, "payment": payment}
+
+
+@router.post("/payments/execute")
+async def execute(payload: ExecuteIn) -> dict:
+    return await execute_authorization(payload.authorizationId)
+
 
 
 class CheckoutConfirmIn(BaseModel):

@@ -103,9 +103,13 @@ async def create_intent(agentId: str, payload: IntentIn) -> dict:
     return {"intentId": intent_id}
 
 
+import asyncio
+import os
+
 @router.post("/payment-request")
 async def payment_request(
     payload: PaymentRequestIn,
+    wait_seconds: int = 15,
     x_agent_key: str | None = Header(default=None),
 ) -> dict:
     snapshot = store.snapshot()
@@ -252,9 +256,68 @@ async def payment_request(
         },
     )
 
+    # If user approval is required, wait up to wait_seconds for approval on phone before returning
+    if decision["decision"] == "USER_APPROVAL" and wait_seconds > 0:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + min(wait_seconds, 30)
+        while loop.time() < deadline:
+            await asyncio.sleep(1.0)
+            current_state = store.snapshot()
+            resolution = next(
+                (r for r in current_state.get("resolutions", []) if r["requestId"] == request_id),
+                None,
+            )
+            if resolution:
+                if resolution["action"] == "accept":
+                    auth_id = current_state["decisions"].get(request_id, {}).get("authorizationId")
+                    if not auth_id:
+                        auth_id = next(
+                            (a["authorizationId"] for a in current_state.get("authorizations", {}).values() if a.get("requestId") == request_id),
+                            None,
+                        )
+                    payment_info = None
+                    if auth_id:
+                        try:
+                            from .routes_guard import execute_authorization
+                            exec_res = await execute_authorization(auth_id, allow_idempotent=True)
+                            payment_info = exec_res.get("payment")
+                        except Exception:
+                            pass
+
+                    pub_url = (os.environ.get("GUARD_PUBLIC_URL") or "http://localhost:8002").rstrip("/")
+                    checkout_url = f"{pub_url}/checkout/{auth_id}" if auth_id else None
+
+                    return {
+                        "requestId": request_id,
+                        "decision": "APPROVED",
+                        "status": payment_info.get("status", "AUTHORIZED").upper() if payment_info else "AUTHORIZED",
+                        "riskScore": decision["riskScore"],
+                        "policyVersion": decision["policyVersion"],
+                        "authorizationId": auth_id,
+                        "checkoutUrl": checkout_url,
+                        "payment": payment_info,
+                        "approvalRequired": False,
+                        "message": f"User APPROVED payment on phone! Checkout link: {checkout_url}",
+                    }
+                elif resolution["action"] == "reject":
+                    return {
+                        "requestId": request_id,
+                        "decision": "DENIED",
+                        "status": "DENIED",
+                        "riskScore": decision["riskScore"],
+                        "approvalRequired": False,
+                        "message": "User DECLINED payment on phone.",
+                    }
+
+    pub_url = (os.environ.get("GUARD_PUBLIC_URL") or "http://localhost:8002").rstrip("/")
     return {
         **decision,
+        "status": "PENDING" if decision["decision"] == "USER_APPROVAL" else "ALLOWED",
         "approvalRequired": decision["decision"] == "USER_APPROVAL",
+        "message": (
+            f"Approval request {request_id} sent to user phone for {request['product']} (₹{request['amount']}). "
+            f"Please tap ACCEPT in AgentPay Guard app. Call /agent/payment-status/{request_id} (or 'latest') to verify."
+        ) if decision["decision"] == "USER_APPROVAL" else "Transaction auto-approved within policy limit.",
     }
 
 
@@ -262,16 +325,42 @@ async def payment_request(
 async def payment_status(request_id: str) -> dict:
     """Poll an agent request: decision, user resolution, authorization, payment."""
     state = store.snapshot()
-    request = state["requests"].get(request_id)
-    if not request:
-        raise HTTPException(status_code=404, detail={"code": "REQUEST_NOT_FOUND"})
+    
+    if request_id.lower() in ("latest", "last", "recent", "current"):
+        requests = list(state.get("requests", {}).values())
+        if not requests:
+            raise HTTPException(status_code=404, detail={"code": "NO_REQUESTS_FOUND", "message": "No payment requests found"})
+        request = requests[-1]
+        request_id = request["requestId"]
+    else:
+        request = state["requests"].get(request_id)
+        if not request:
+            matching = [r for r_id, r in state["requests"].items() if request_id.lower() in r_id.lower()]
+            if matching:
+                request = matching[-1]
+                request_id = request["requestId"]
+            else:
+                recent_ids = list(state.get("requests", {}).keys())[-5:]
+                raise HTTPException(
+                    status_code=404,
+                    detail={
+                        "code": "REQUEST_NOT_FOUND",
+                        "message": f"Request '{request_id}' not found. Recent request IDs: {recent_ids}. Use 'latest' to check the most recent request.",
+                        "recentRequestIds": recent_ids,
+                    },
+                )
 
     resolution = next(
         (r for r in state.get("resolutions", []) if r["requestId"] == request_id), None
     )
     decision = state["decisions"].get(request_id)
     auth_id = decision.get("authorizationId") if decision else None
-    authorization = state["authorizations"].get(auth_id) if auth_id else None
+    if not auth_id:
+        auth_id = next(
+            (a["authorizationId"] for a in state.get("authorizations", {}).values() if a.get("requestId") == request_id),
+            None,
+        )
+
     payment = next(
         (
             p
@@ -281,11 +370,40 @@ async def payment_status(request_id: str) -> dict:
         None,
     )
 
+    if resolution and resolution.get("action") == "accept" and auth_id and not payment:
+        try:
+            from .routes_guard import execute_authorization
+            exec_res = await execute_authorization(auth_id, allow_idempotent=True)
+            payment = exec_res.get("payment")
+            state = store.snapshot()
+        except Exception:
+            pass
+
+    authorization = state["authorizations"].get(auth_id) if auth_id else None
+
+    status_str = "PENDING"
+    if decision and decision.get("decision") == "BLOCK":
+        status_str = "BLOCKED"
+    elif resolution and resolution.get("action") == "reject":
+        status_str = "DENIED"
+    elif payment:
+        status_str = payment.get("status", "EXECUTED").upper()
+    elif resolution and resolution.get("action") == "accept":
+        status_str = "APPROVED"
+
+    checkout_url = None
+    if auth_id:
+        pub_url = (os.environ.get("GUARD_PUBLIC_URL") or "http://localhost:8002").rstrip("/")
+        checkout_url = f"{pub_url}/checkout/{auth_id}"
+
     return {
         "requestId": request_id,
+        "status": status_str,
         "request": request,
         "decision": decision,
         "resolution": resolution,
         "authorization": authorization,
         "payment": payment,
+        "checkoutUrl": checkout_url,
     }
+
