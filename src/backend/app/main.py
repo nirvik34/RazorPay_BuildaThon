@@ -15,6 +15,8 @@ from .state import store
 
 import socket
 import threading
+import json
+import urllib.request
 
 def get_lan_ip():
     try:
@@ -22,9 +24,20 @@ def get_lan_ip():
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
         s.close()
-        return ip
+        if ip and not ip.startswith("127."):
+            return ip
     except Exception:
-        return "127.0.0.1"
+        pass
+
+    try:
+        host_ips = socket.gethostbyname_ex(socket.gethostname())[2]
+        for ip in host_ips:
+            if not ip.startswith("127."):
+                return ip
+    except Exception:
+        pass
+
+    return "127.0.0.1"
 
 def run_udp_discovery(port: int = 8000, discovery_port: int = 8001):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -79,6 +92,47 @@ async def start_zeroconf_service(port: int = 8000):
         return None, None
 
 
+async def publish_ntfy_relay(port: int = 8000):
+    topic = "agentpay_guard_hub_relay"
+    while True:
+        try:
+            target_url = None
+            # 1. Check ngrok local API
+            try:
+                req = urllib.request.Request("http://127.0.0.1:4040/api/tunnels")
+                with urllib.request.urlopen(req, timeout=2) as resp:
+                    if resp.status == 200:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        tunnels = data.get("tunnels", [])
+                        for t in tunnels:
+                            public_url = t.get("public_url")
+                            if public_url:
+                                target_url = public_url
+                                break
+            except Exception:
+                pass
+
+            # 2. Fallback to LAN IP
+            if not target_url:
+                lan_ip = get_lan_ip()
+                if lan_ip and lan_ip != "127.0.0.1":
+                    target_url = f"http://{lan_ip}:{port}"
+
+            if target_url:
+                req = urllib.request.Request(
+                    f"https://ntfy.sh/{topic}",
+                    data=target_url.encode("utf-8"),
+                    headers={"Title": "AgentPay Guard Hub URL"},
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    pass
+        except Exception:
+            pass
+
+        await asyncio.sleep(15)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     store.load()
@@ -86,8 +140,10 @@ async def lifespan(app: FastAPI):
     t.start()
     
     aiozc, zc_info = await start_zeroconf_service(settings.port)
+    ntfy_task = asyncio.create_task(publish_ntfy_relay(settings.port))
     yield
     
+    ntfy_task.cancel()
     if aiozc and zc_info:
         try:
             await aiozc.zeroconf.async_unregister_service(zc_info)
@@ -101,18 +157,8 @@ app = FastAPI(title="AgentPay Guard API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-        "http://localhost:3002",
-        "http://127.0.0.1:3002",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:[0-9]+)?",
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

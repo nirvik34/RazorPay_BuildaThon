@@ -45,12 +45,27 @@ interface GuardApi {
 
     companion object {
         fun create(baseUrl: String): GuardApi {
+            var normalized = baseUrl.trim().trimEnd('/')
+            if (normalized.isNotEmpty() && !normalized.startsWith("http://") && !normalized.startsWith("https://")) {
+                normalized = if (normalized.contains("ngrok")) "https://$normalized" else "http://$normalized"
+            }
+            if (!normalized.endsWith("/")) {
+                normalized += "/"
+            }
             val client = OkHttpClient.Builder()
-                .connectTimeout(5, TimeUnit.SECONDS)
-                .readTimeout(10, TimeUnit.SECONDS)
+                .addInterceptor { chain ->
+                    val original = chain.request()
+                    val request = original.newBuilder()
+                        .header("ngrok-skip-browser-warning", "true")
+                        .header("User-Agent", "AgentPayGuard/1.0")
+                        .build()
+                    chain.proceed(request)
+                }
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(15, TimeUnit.SECONDS)
                 .build()
             return Retrofit.Builder()
-                .baseUrl(if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/")
+                .baseUrl(normalized)
                 .client(client)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()

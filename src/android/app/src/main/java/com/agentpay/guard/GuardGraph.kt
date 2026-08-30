@@ -33,14 +33,24 @@ object GuardGraph {
         null
     }
 
+    private fun normalizeUrl(url: String): String {
+        var trimmed = url.trim().trimEnd('/')
+        if (trimmed.isEmpty()) return DEFAULT_BACKEND_URL
+        if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+            trimmed = if (trimmed.contains("ngrok")) "https://$trimmed" else "http://$trimmed"
+        }
+        return trimmed
+    }
+
     fun loadSettings(context: Context) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        backendBaseUrl = prefs.getString(KEY_BACKEND_URL, DEFAULT_BACKEND_URL) ?: DEFAULT_BACKEND_URL
+        val saved = prefs.getString(KEY_BACKEND_URL, DEFAULT_BACKEND_URL) ?: DEFAULT_BACKEND_URL
+        backendBaseUrl = normalizeUrl(saved)
     }
 
     fun setBackendBaseUrl(context: Context, url: String) {
-        val normalized = url.trim().trimEnd('/')
-        backendBaseUrl = normalized.ifEmpty { DEFAULT_BACKEND_URL }
+        val normalized = normalizeUrl(url)
+        backendBaseUrl = normalized
         synchronized(this) { apiClient = null }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString(KEY_BACKEND_URL, backendBaseUrl).apply()

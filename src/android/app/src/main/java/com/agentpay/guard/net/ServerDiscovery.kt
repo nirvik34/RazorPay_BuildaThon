@@ -22,24 +22,31 @@ import kotlin.coroutines.resume
 object ServerDiscovery {
 
     suspend fun discover(context: Context): String? = withContext(Dispatchers.IO) {
-        // 1. Try UDP discovery first (Fastest)
+        // 1. Try current configured URL first (fastest if user already set it or previously discovered)
+        val currentUrl = GuardGraph.backendBaseUrl
+        if (verifyHealth(currentUrl)) {
+            return@withContext currentUrl
+        }
+
+        // 1.5. Try public ntfy relay URL (works across different networks / ngrok tunnels)
+        val ntfyResult = discoverViaNtfy()
+        if (ntfyResult != null && verifyHealth(ntfyResult)) {
+            GuardGraph.setBackendBaseUrl(context, ntfyResult)
+            return@withContext ntfyResult
+        }
+
+        // 2. Try UDP discovery
         val udpResult = discoverViaUdp()
         if (udpResult != null && verifyHealth(udpResult)) {
             GuardGraph.setBackendBaseUrl(context, udpResult)
             return@withContext udpResult
         }
 
-        // 2. Try mDNS / Zeroconf discovery via NsdManager
+        // 3. Try mDNS / Zeroconf discovery via NsdManager
         val mdnsResult = discoverViaMdns(context)
         if (mdnsResult != null && verifyHealth(mdnsResult)) {
             GuardGraph.setBackendBaseUrl(context, mdnsResult)
             return@withContext mdnsResult
-        }
-
-        // 3. Try current configured URL
-        val currentUrl = GuardGraph.backendBaseUrl
-        if (verifyHealth(currentUrl)) {
-            return@withContext currentUrl
         }
 
         // 4. Try emulator host (http://10.0.2.2:8000)
@@ -57,6 +64,31 @@ object ServerDiscovery {
         }
 
         null
+    }
+
+    private fun discoverViaNtfy(): String? {
+        return try {
+            val url = URL("https://ntfy.sh/agentpay_guard_hub_relay/raw?poll=1")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                connectTimeout = 3000
+                readTimeout = 3000
+                requestMethod = "GET"
+            }
+            if (conn.responseCode == 200) {
+                val text = conn.inputStream.bufferedReader().use { it.readText() }
+                conn.disconnect()
+                val lines = text.lineSequence()
+                    .map { it.trim() }
+                    .filter { it.startsWith("http://") || it.startsWith("https://") }
+                    .toList()
+                lines.lastOrNull()
+            } else {
+                conn.disconnect()
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private fun discoverViaUdp(): String? {
@@ -216,12 +248,17 @@ object ServerDiscovery {
 
     fun verifyHealth(baseUrl: String): Boolean {
         return try {
-            val normalized = baseUrl.trim().trimEnd('/')
+            var normalized = baseUrl.trim().trimEnd('/')
+            if (normalized.isNotEmpty() && !normalized.startsWith("http://") && !normalized.startsWith("https://")) {
+                normalized = if (normalized.contains("ngrok")) "https://$normalized" else "http://$normalized"
+            }
             val url = URL("$normalized/health")
             val conn = (url.openConnection() as HttpURLConnection).apply {
-                connectTimeout = 300
-                readTimeout = 300
+                connectTimeout = 3000
+                readTimeout = 3000
                 requestMethod = "GET"
+                setRequestProperty("ngrok-skip-browser-warning", "true")
+                setRequestProperty("User-Agent", "AgentPayGuard/1.0")
             }
             val code = conn.responseCode
             val isOk = code == 200
