@@ -13,10 +13,87 @@ from .ws import CONNECTIONS
 from .state import store
 
 
+import socket
+import threading
+
+def get_lan_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+def run_udp_discovery(port: int = 8000, discovery_port: int = 8001):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    try:
+        sock.bind(("0.0.0.0", discovery_port))
+    except Exception:
+        return
+    sock.settimeout(1.0)
+    
+    lan_ip = get_lan_ip()
+    msg = f"AGENTPAY_GUARD_SERVER:http://{lan_ip}:{port}".encode("utf-8")
+    
+    while True:
+        try:
+            data, addr = sock.recvfrom(1024)
+            if b"AGENTPAY_GUARD_DISCOVER" in data:
+                sock.sendto(msg, addr)
+        except socket.timeout:
+            try:
+                sock.sendto(msg, ("255.255.255.255", discovery_port))
+            except Exception:
+                pass
+        except Exception:
+            break
+
+
+import asyncio
+from zeroconf import IPVersion, ServiceInfo
+from zeroconf.asyncio import AsyncZeroconf
+
+async def start_zeroconf_service(port: int = 8000):
+    try:
+        local_ip = get_lan_ip()
+        packed_ip = socket.inet_aton(local_ip)
+        
+        info = ServiceInfo(
+            "_friday-hub._tcp.local.",
+            "FRIDAY Compute Hub._friday-hub._tcp.local.",
+            addresses=[packed_ip],
+            port=port,
+            properties={"path": "/health", "service": "agentpay-guard"},
+        )
+        
+        aiozc = AsyncZeroconf(ip_version=IPVersion.V4Only)
+        await aiozc.zeroconf.async_register_service(info, allow_name_change=True)
+        print(f"[Discovery] Advertising FRIDAY Hub mDNS at {local_ip}:{port}")
+        return aiozc, info
+    except Exception as e:
+        print(f"[Discovery] Zeroconf register warning: {e}")
+        return None, None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     store.load()
+    t = threading.Thread(target=run_udp_discovery, args=(settings.port, 8001), daemon=True)
+    t.start()
+    
+    aiozc, zc_info = await start_zeroconf_service(settings.port)
     yield
+    
+    if aiozc and zc_info:
+        try:
+            await aiozc.zeroconf.async_unregister_service(zc_info)
+            await aiozc.async_close()
+        except Exception:
+            pass
     store.save()
 
 

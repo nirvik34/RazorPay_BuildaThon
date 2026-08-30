@@ -20,12 +20,12 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             val api = GuardGraph.api(applicationContext) ?: return Result.success()
             val response = api.syncAudit(
                 events = unsynced.map { event ->
-                    mapOf(
+                    mapOf<String, Any>(
                         "eventId" to event.eventId,
                         "requestId" to event.requestId,
                         "atMs" to event.atMs,
                         "label" to event.label,
-                        "detail" to event.detail
+                        "detail" to (event.detail ?: "")
                     )
                 }
             )

@@ -29,7 +29,20 @@ class GuardViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
+            com.agentpay.guard.net.ServerDiscovery.discover(getApplication())
             refresh()
+        }
+    }
+
+    fun autoDiscover(onDone: (String) -> Unit = {}) {
+        viewModelScope.launch {
+            val found = com.agentpay.guard.net.ServerDiscovery.discover(getApplication())
+            if (found != null) {
+                refresh()
+                onDone("Connected to backend: $found")
+            } else {
+                onDone("Could not find backend automatically")
+            }
         }
     }
 

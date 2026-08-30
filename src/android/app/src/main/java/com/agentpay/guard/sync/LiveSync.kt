@@ -54,15 +54,20 @@ object LiveSync {
         private set
 
     suspend fun syncOnce(context: Context): Int {
+        if (!backendReachable) {
+            com.agentpay.guard.net.ServerDiscovery.discover(context)
+        }
         val api = GuardGraph.api(context) ?: return 0
         val response = try {
             api.pending()
         } catch (e: Exception) {
             backendReachable = false
+            com.agentpay.guard.net.ServerDiscovery.discover(context)
             return 0
         }
         if (!response.isSuccessful) {
             backendReachable = false
+            com.agentpay.guard.net.ServerDiscovery.discover(context)
             return 0
         }
         backendReachable = true

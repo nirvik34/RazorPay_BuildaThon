@@ -10,37 +10,38 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import java.util.concurrent.TimeUnit
 
+@JvmSuppressWildcards
 interface GuardApi {
 
     @GET("guard/pending")
-    suspend fun pending(): Response<List<Map<String, Any?>>>
+    suspend fun pending(): Response<List<Map<String, Any>>>
 
     @POST("guard/approvals/{requestId}/action")
     suspend fun approvalAction(
         @Path("requestId") requestId: String,
         @Body body: Map<String, String>
-    ): Response<Map<String, Any?>>
+    ): Response<Map<String, Any>>
 
     @GET("agent/payment-status/{requestId}")
-    suspend fun paymentStatus(@Path("requestId") requestId: String): Response<Map<String, Any?>>
+    suspend fun paymentStatus(@Path("requestId") requestId: String): Response<Map<String, Any>>
 
     @POST("sync/audit")
-    suspend fun syncAudit(@Body events: List<Map<String, Any?>>): Response<Map<String, Any?>>
+    suspend fun syncAudit(@Body events: List<Map<String, Any>>): Response<Map<String, Any>>
 
     @POST("agent/payment-request")
-    suspend fun submitPaymentRequest(@Body body: Map<String, Any?>): Response<Map<String, Any?>>
+    suspend fun submitPaymentRequest(@Body body: Map<String, Any>): Response<Map<String, Any>>
 
     @GET("agents")
-    suspend fun getAgents(): Response<Map<String, List<Map<String, Any?>>>>
+    suspend fun getAgents(): Response<Map<String, List<Map<String, Any>>>>
 
     @GET("policies")
-    suspend fun getPolicies(): Response<Map<String, List<Map<String, Any?>>>>
+    suspend fun getPolicies(): Response<Map<String, List<Map<String, Any>>>>
 
     @GET("intents")
-    suspend fun getIntents(): Response<Map<String, List<Map<String, Any?>>>>
+    suspend fun getIntents(): Response<Map<String, List<Map<String, Any>>>>
 
     @GET("transactions")
-    suspend fun getTransactions(): Response<Map<String, List<Map<String, Any?>>>>
+    suspend fun getTransactions(): Response<Map<String, List<Map<String, Any>>>>
 
     companion object {
         fun create(baseUrl: String): GuardApi {

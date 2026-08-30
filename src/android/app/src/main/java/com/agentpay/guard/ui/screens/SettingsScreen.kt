@@ -59,7 +59,7 @@ fun SettingsScreen(viewModel: GuardViewModel) {
             Spacer(Modifier.height(4.dp))
         }
         item {
-            BackendUrlField()
+            BackendUrlField(viewModel, onStatusChange = { lastResult = it })
         }
         item {
             DemoButton("RUN NORMAL PURCHASE", GuardColors.Brand) {
@@ -103,13 +103,15 @@ fun SettingsScreen(viewModel: GuardViewModel) {
 
 
 @Composable
-private fun BackendUrlField() {
+private fun BackendUrlField(viewModel: GuardViewModel, onStatusChange: (String) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var url by remember { mutableStateOf(com.agentpay.guard.GuardGraph.backendBaseUrl) }
+    var isDiscovering by remember { mutableStateOf(false) }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Text("Backend URL", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
         Text(
-            "Emulator: http://10.0.2.2:8000 · Physical phone: your PC's LAN IP (e.g. http://192.168.1.5:8000)",
+            "Auto-detects laptop on Wi-Fi/LAN, or manually enter URL.",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -122,10 +124,35 @@ private fun BackendUrlField() {
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(6.dp))
-        Button(
-            onClick = { com.agentpay.guard.GuardGraph.setBackendBaseUrl(context, url) },
-            modifier = Modifier.height(42.dp)
-        ) { Text("SAVE URL", fontWeight = FontWeight.Bold) }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = {
+                    com.agentpay.guard.GuardGraph.setBackendBaseUrl(context, url)
+                    viewModel.refresh()
+                    onStatusChange("Saved URL: $url")
+                },
+                modifier = Modifier.weight(1f).height(42.dp)
+            ) {
+                Text("SAVE URL", fontWeight = FontWeight.Bold)
+            }
+            OutlinedButton(
+                onClick = {
+                    isDiscovering = true
+                    viewModel.autoDiscover { res ->
+                        isDiscovering = false
+                        url = com.agentpay.guard.GuardGraph.backendBaseUrl
+                        onStatusChange(res)
+                    }
+                },
+                enabled = !isDiscovering,
+                modifier = Modifier.weight(1f).height(42.dp)
+            ) {
+                Text(if (isDiscovering) "SCANNING..." else "AUTO DISCOVER", fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
