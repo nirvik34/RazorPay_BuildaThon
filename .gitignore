@@ -12,6 +12,7 @@ venv/
 .env
 .env.local
 .env.*.local
+*.sh
 
 # Node / Next.js (src/web)
 node_modules/
