@@ -1,0 +1,1950 @@
+Yes. I’d keep the **precision/infrastructure feel** of the Razorpay reference, but not copy Razorpay’s identity. AgentPay Guard should visually communicate **trust, consent, security, and AI activity** rather than merchant payments.
+
+Below is the complete `design.md` I would use.
+
+````md
+---
+name: AgentPay Guard
+
+colors:
+  background: "#F7F9FC"
+  foreground: "#101828"
+  brand: "#2563EB"
+  brandDark: "#1D4ED8"
+  muted: "#667085"
+  border: "#E4E7EC"
+  card: "#FFFFFF"
+
+  navy: "#0B1220"
+  navyLight: "#111C2E"
+
+  success: "#12B76A"
+  successBg: "#ECFDF3"
+  successBorder: "#A6F4C5"
+
+  danger: "#F04438"
+  dangerBg: "#FEF3F2"
+  dangerBorder: "#FECDCA"
+
+  warning: "#F79009"
+  warningBg: "#FFFAEB"
+  warningBorder: "#FEDF89"
+
+  info: "#2E90FA"
+  infoBg: "#EFF8FF"
+  infoBorder: "#B2DDFF"
+
+  purple: "#7F56D9"
+  purpleBg: "#F4F3FF"
+
+  dark:
+    background: "#080C14"
+    foreground: "#F2F4F7"
+    muted: "#98A2B3"
+    border: "#1D2939"
+    card: "#101828"
+    brand: "#3B82F6"
+    success: "#32D583"
+    danger: "#F97066"
+    warning: "#FDB022"
+
+typography:
+  fontFamily:
+    sans: "Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+    mono: "JetBrains Mono, SFMono-Regular, Consolas, monospace"
+
+  body:
+    fontSize: "14px"
+    lineHeight: "1.5"
+
+  heading:
+    fontWeight: "650"
+    letterSpacing: "-0.02em"
+
+  display:
+    fontWeight: "700"
+    letterSpacing: "-0.035em"
+
+rounded:
+  default: "8px"
+  sm: "6px"
+  md: "10px"
+  lg: "14px"
+  xl: "18px"
+  pill: "999px"
+
+shadows:
+  low: "0 1px 2px rgba(16,24,40,0.04)"
+  medium: "0 4px 12px rgba(16,24,40,0.08)"
+  high: "0 12px 32px rgba(16,24,40,0.12)"
+---
+
+# Design System: AgentPay Guard
+
+## Overview
+
+AgentPay Guard is a local-first financial security and consent layer for autonomous AI agents.
+
+The interface should communicate one central idea:
+
+> **AI can act. The user remains in control of money.**
+
+The visual language combines:
+
+- financial infrastructure
+- cybersecurity
+- AI agent activity
+- human approval
+- transaction transparency
+
+The product should feel like a serious security product rather than a generic AI dashboard.
+
+It should not look like a banking clone, cryptocurrency dashboard, or chatbot interface.
+
+---
+
+# 1. Design Philosophy
+
+## 1.1 Trust Before Intelligence
+
+The most important information is not the AI's reasoning.
+
+It is:
+
+1. What is the agent trying to do?
+2. How much money is involved?
+3. Where is it going?
+4. Why is the action being requested?
+5. What will happen if I approve?
+6. What happens if I reject?
+
+The interface therefore prioritizes transaction context over decorative AI elements.
+
+---
+
+## 1.2 Human-in-the-Loop
+
+The product's defining interaction is:
+
+```text
+AI REQUEST
+     ↓
+GUARD EVALUATION
+     ↓
+USER DECISION
+     ↓
+AUTHORIZED / BLOCKED
+````
+
+The UI must make the decision point extremely obvious.
+
+Approval and rejection should never look like secondary actions.
+
+---
+
+## 1.3 Security Without Fear
+
+AgentPay Guard is a security product, but the UI should not constantly scream "danger."
+
+Use:
+
+* neutral states for normal activity
+* amber for attention
+* red only for actual rejection, blocking, or critical threats
+* green for successful authorization
+
+This creates a visual language users can learn quickly.
+
+---
+
+## 1.4 Local-First
+
+The Android app is the trusted device.
+
+The design should subtly reinforce:
+
+```text
+THIS DEVICE
+     ↓
+YOUR POLICIES
+     ↓
+YOUR AUTHORITY
+     ↓
+YOUR DECISION
+```
+
+Cloud synchronization should never visually imply that the cloud is the authority over the user's money.
+
+---
+
+## 1.5 Infrastructure Precision
+
+Borrow the useful qualities of financial infrastructure products:
+
+* tight spacing
+* clear grids
+* thin borders
+* compact tables
+* strong numerical hierarchy
+* deterministic status labels
+* explicit timestamps
+* transaction IDs
+* audit trails
+
+Avoid unnecessary gradients, glassmorphism, excessive rounded cards, and decorative illustrations.
+
+---
+
+# 2. Brand Identity
+
+## Primary Brand Color
+
+### Guard Blue
+
+`#2563EB`
+
+Used for:
+
+* primary actions
+* links
+* active navigation
+* selected states
+* interactive controls
+* agent connection status
+
+Blue represents **authorization infrastructure**, not payment success.
+
+---
+
+## Deep Navy
+
+`#0B1220`
+
+Used for:
+
+* sidebar
+* security panels
+* agent identity areas
+* high-importance headers
+* dark surfaces
+
+The navy creates the feeling of a trusted security boundary.
+
+---
+
+# 3. Semantic Color System
+
+## Green — Approved
+
+```text
+success:      #12B76A
+successBg:    #ECFDF3
+successBorder:#A6F4C5
+```
+
+Meaning:
+
+* user approved
+* authorization granted
+* payment successful
+* agent action completed
+
+Example:
+
+```text
+🟢 APPROVED
+```
+
+Use a green left border or subtle green outline.
+
+Do not make the entire card green.
+
+---
+
+## Red — Rejected / Blocked
+
+```text
+danger:       #F04438
+dangerBg:     #FEF3F2
+dangerBorder: #FECDCA
+```
+
+Meaning:
+
+* user rejected
+* policy blocked
+* agent frozen
+* authorization denied
+* critical security event
+
+Example:
+
+```text
+🔴 BLOCKED
+```
+
+Red should be reserved for actual negative outcomes.
+
+---
+
+## Amber — Action Required
+
+```text
+warning:      #F79009
+warningBg:    #FFFAEB
+warningBorder:#FEDF89
+```
+
+Meaning:
+
+* approval required
+* new merchant
+* elevated risk
+* pending decision
+
+Example:
+
+```text
+🟠 ACTION REQUIRED
+```
+
+Amber is the primary color of the approval-request state.
+
+---
+
+## Blue — Information
+
+```text
+info:         #2E90FA
+infoBg:       #EFF8FF
+infoBorder:   #B2DDFF
+```
+
+Used for:
+
+* informational events
+* sync
+* agent connected
+* policy updates
+* system notifications
+
+---
+
+## Purple — AI Context
+
+```text
+purple:       #7F56D9
+purpleBg:     #F4F3FF
+```
+
+Purple should identify **AI-generated context**, not security decisions.
+
+For example:
+
+```text
+AI INTENT
+
+"Find headphones under ₹15,000"
+```
+
+This visually separates:
+
+```text
+AI interpretation
+```
+
+from:
+
+```text
+Security decision
+```
+
+---
+
+# 4. Typography
+
+## Primary Typeface
+
+Inter.
+
+The UI should feel:
+
+* technical
+* modern
+* readable
+* neutral
+
+Avoid overly futuristic fonts.
+
+AgentPay Guard should look like serious financial infrastructure.
+
+---
+
+## Numerical Typography
+
+Financial values should use tabular or monospace numerals where useful.
+
+Example:
+
+```text
+₹14,499.00
+```
+
+Transaction identifiers:
+
+```text
+auth_7F92A1
+txn_84A92D
+req_01J7...
+```
+
+Use:
+
+```text
+JetBrains Mono
+```
+
+for identifiers and technical metadata.
+
+---
+
+# 5. Type Scale
+
+```text
+Display:
+36px / 44px
+
+Page title:
+24px / 32px
+
+Section title:
+18px / 26px
+
+Card title:
+15px / 22px
+
+Body:
+14px / 21px
+
+Secondary:
+13px / 19px
+
+Metadata:
+12px / 18px
+
+Transaction ID:
+12px monospace
+```
+
+Do not create huge marketing-style headings inside the dashboard.
+
+The dashboard is an operational interface.
+
+---
+
+# 6. Layout System
+
+Use an 8px base spacing system.
+
+```text
+4px
+8px
+12px
+16px
+20px
+24px
+32px
+40px
+48px
+64px
+```
+
+Recommended dashboard page padding:
+
+```text
+Desktop:
+32px
+
+Tablet:
+24px
+
+Mobile:
+16px
+```
+
+---
+
+# 7. Desktop Application Layout
+
+```text
+┌──────────────────────────────────────────────────────────┐
+│ AgentPay Guard                              User ●       │
+├───────────────┬──────────────────────────────────────────┤
+│               │                                          │
+│  AGENTPAY     │  Dashboard                               │
+│  GUARD        │                                          │
+│               │  ┌────────┐ ┌────────┐ ┌────────┐       │
+│  Overview     │  │ Spend  │ │Agents  │ │ Alerts │       │
+│  Approvals    │  │₹18.4K  │ │   3    │ │   2    │       │
+│  Activity     │  └────────┘ └────────┘ └────────┘       │
+│  Agents       │                                          │
+│  Policies     │                                          │
+│  Risk         │                                          │
+│  Simulation   │                                          │
+│  Audit        │                                          │
+│               │                                          │
+│               │                                          │
+│  Settings     │                                          │
+│               │                                          │
+└───────────────┴──────────────────────────────────────────┘
+```
+
+---
+
+# 8. Sidebar
+
+Width:
+
+```text
+240px
+```
+
+Background:
+
+```text
+#0B1220
+```
+
+Logo:
+
+```text
+AGENTPAY
+GUARD
+```
+
+Use a simple shield/guard mark.
+
+Navigation:
+
+```text
+Overview
+Approvals
+Activity
+Agents
+Policies
+Risk
+Simulation
+Audit
+```
+
+Bottom:
+
+```text
+Settings
+Device Security
+```
+
+Active navigation:
+
+```text
+background: rgba(59,130,246,0.14)
+text: #FFFFFF
+left indicator: #3B82F6
+```
+
+Do not overuse icons.
+
+Icons should be simple line icons.
+
+---
+
+# 9. Dashboard
+
+The dashboard answers:
+
+> **"Is my AI spending safely?"**
+
+Top-level cards:
+
+```text
+TODAY'S SPEND
+₹18,420
+
+PENDING APPROVALS
+2
+
+ACTIVE AGENTS
+3
+
+BLOCKED ACTIONS
+4
+```
+
+Secondary section:
+
+```text
+Recent AI Activity
+```
+
+and:
+
+```text
+Risk Overview
+```
+
+---
+
+# 10. Approval Request Card
+
+This is the most important component.
+
+```text
+┌────────────────────────────────────────────┐
+│ 🟠 ACTION REQUIRED                        │
+│                                            │
+│ Claude Shopping Agent                     │
+│                                            │
+│ Sony WH-1000XM5                            │
+│ Amazon                                     │
+│                                            │
+│ ₹14,499                                    │
+│                                            │
+│ ───────────────────────────────────────── │
+│                                            │
+│ AI INTENT                                  │
+│ "Find headphones under ₹15,000"             │
+│                                            │
+│ ✓ Budget within policy                     │
+│ ✓ Category allowed                         │
+│ ⚠ New merchant                             │
+│                                            │
+│ Risk                       LOW              │
+│                                            │
+│ [ REJECT ]                 [ ACCEPT ]      │
+└────────────────────────────────────────────┘
+```
+
+The amount should be the visual focal point.
+
+---
+
+# 11. Approval Action Hierarchy
+
+For approval requests:
+
+### Primary
+
+```text
+ACCEPT
+```
+
+Color:
+
+```text
+#12B76A
+```
+
+### Secondary destructive
+
+```text
+REJECT
+```
+
+Color:
+
+```text
+#F04438
+```
+
+Both actions must have strong visual presence.
+
+Do not make Reject a tiny text link.
+
+---
+
+# 12. Android Approval Screen
+
+The mobile experience should be even more focused.
+
+```text
+┌───────────────────────────────┐
+│ 9:42 PM                       │
+│                               │
+│ 🟠 ACTION REQUIRED            │
+│                               │
+│ Claude                        │
+│ Shopping Agent                │
+│                               │
+│ Sony WH-1000XM5               │
+│ Amazon                        │
+│                               │
+│ ₹14,499                       │
+│                               │
+│ ────────────────────────────  │
+│                               │
+│ YOUR INTENT                   │
+│ Headphones under ₹15,000     │
+│                               │
+│ POLICY                        │
+│ ✓ Under transaction limit    │
+│ ✓ Electronics allowed        │
+│ ⚠ New merchant               │
+│                               │
+│ RISK                          │
+│ LOW                           │
+│                               │
+│ ┌──────────┐ ┌──────────────┐ │
+│ │  REJECT  │ │    ACCEPT    │ │
+│ └──────────┘ └──────────────┘ │
+└───────────────────────────────┘
+```
+
+The user should be able to make the decision within seconds.
+
+---
+
+# 13. Approved State
+
+```text
+┌────────────────────────────────┐
+│ 🟢 APPROVED                    │
+│                                │
+│ Claude → Amazon                │
+│ Sony WH-1000XM5                │
+│                                │
+│ ₹14,499                        │
+│                                │
+│ User approved                  │
+│ 9:42 PM                        │
+│                                │
+│ Authorization issued           │
+│ Payment processing             │
+└────────────────────────────────┘
+```
+
+Green left border:
+
+```text
+4px solid #12B76A
+```
+
+Background remains white.
+
+---
+
+# 14. Rejected State
+
+```text
+┌────────────────────────────────┐
+│ 🔴 REJECTED                    │
+│                                │
+│ Claude → Amazon                │
+│ Sony WH-1000XM5                │
+│                                │
+│ ₹14,499                        │
+│                                │
+│ Reason                         │
+│ User rejected transaction      │
+│                                │
+│ Authorization denied           │
+│ 9:43 PM                        │
+└────────────────────────────────┘
+```
+
+Red left border:
+
+```text
+4px solid #F04438
+```
+
+---
+
+# 15. Blocked State
+
+Blocked is different from user rejection.
+
+Example:
+
+```text
+🔴 BLOCKED BY POLICY
+
+MacBook Pro
+₹42,000
+
+Reason:
+Transaction exceeds ₹20,000
+autonomous spending limit.
+
+No user approval was requested.
+```
+
+This distinction matters.
+
+### Rejected
+
+User made the decision.
+
+### Blocked
+
+Guard made the decision because policy prohibited the action.
+
+---
+
+# 16. Status Pills
+
+Use compact semantic pills.
+
+```text
+APPROVED
+background: #ECFDF3
+text: #067647
+
+PENDING
+background: #FFFAEB
+text: #B54708
+
+BLOCKED
+background: #FEF3F2
+text: #B42318
+
+ACTIVE
+background: #EFF8FF
+text: #175CD3
+
+FROZEN
+background: #FEF3F2
+text: #B42318
+```
+
+Border optional.
+
+Do not use pills for everything.
+
+---
+
+# 17. Agent Cards
+
+```text
+┌────────────────────────────────────────┐
+│ Claude Shopping Agent       ● ACTIVE   │
+│                                        │
+│ Trust score                         94 │
+│                                        │
+│ Today's activity                       │
+│ 6 transactions                         │
+│ ₹18,420                                │
+│                                        │
+│ Authority                              │
+│ ₹10K / transaction                     │
+│ ₹30K / day                             │
+│                                        │
+│ [ VIEW AGENT ]                         │
+└────────────────────────────────────────┘
+```
+
+Agent icon:
+
+Use a neutral AI icon.
+
+Do not reproduce ChatGPT, Claude, or Gemini logos unless legally appropriate.
+
+---
+
+# 18. Agent Detail Page
+
+Sections:
+
+```text
+Agent identity
+Authority
+Current status
+Activity
+Risk
+Policies
+Decision history
+```
+
+Header:
+
+```text
+Claude Shopping Agent
+● ACTIVE
+
+agent_7F91
+```
+
+Actions:
+
+```text
+[ FREEZE AGENT ]
+[ REVOKE ACCESS ]
+```
+
+Freeze is destructive and should require confirmation.
+
+---
+
+# 19. Freeze Confirmation
+
+```text
+┌─────────────────────────────────────┐
+│ Freeze Claude Shopping Agent?       │
+│                                     │
+│ New financial requests will be      │
+│ blocked immediately on this device. │
+│                                     │
+│ Existing payments are unaffected.   │
+│                                     │
+│ [ CANCEL ]      [ FREEZE AGENT ]    │
+└─────────────────────────────────────┘
+```
+
+Use danger red only for the destructive action.
+
+---
+
+# 20. Policies Page
+
+The policy UI should feel like a security configuration tool.
+
+```text
+SPENDING AUTHORITY
+
+Per transaction
+₹10,000
+
+Daily
+₹30,000
+
+Monthly
+₹100,000
+```
+
+Then:
+
+```text
+ALLOWED CATEGORIES
+
+✓ Electronics
+✓ Groceries
+✓ Office supplies
+
+BLOCKED
+
+✕ Gift cards
+✕ Gambling
+✕ Cryptocurrency
+```
+
+Then:
+
+```text
+REQUIRE APPROVAL
+
+☑ New merchant
+☑ International merchant
+☑ Amount > ₹10,000
+☑ High risk
+```
+
+---
+
+# 21. Policy Editor
+
+Use clear rule rows.
+
+```text
+WHEN
+
+Transaction amount
+
+IS GREATER THAN
+
+₹10,000
+
+THEN
+
+Require user approval
+```
+
+For hard blocks:
+
+```text
+WHEN
+
+Category
+
+IS
+
+Gift cards
+
+THEN
+
+BLOCK
+```
+
+This is easier to understand than exposing raw JSON.
+
+Advanced users can optionally view:
+
+```text
+Policy JSON
+```
+
+---
+
+# 22. Risk Page
+
+The risk page should not look like a generic ML dashboard.
+
+It should answer:
+
+> **"Why is the Guard concerned?"**
+
+Example:
+
+```text
+CRITICAL AGENT ANOMALY
+
+Claude Shopping Agent
+
+Current activity
+21 transactions / 8 min
+
+Normal baseline
+5–8 transactions / day
+
+Exposure
+₹92,400
+
+Signals
+
++ High transaction velocity
++ New merchants
++ Unusual spending time
++ Category deviation
+
+RECOMMENDATION
+
+Freeze agent
+
+[ FREEZE AGENT ]
+```
+
+---
+
+# 23. Risk Score
+
+Use a horizontal score indicator.
+
+```text
+LOW       MEDIUM       HIGH       CRITICAL
+●──────────●────────────●──────────●
+   22
+```
+
+Do not use a giant circular gauge.
+
+A linear risk scale is easier to interpret.
+
+---
+
+# 24. Circumvention Alert
+
+Special security event:
+
+```text
+┌──────────────────────────────────────────┐
+│ 🔴 CIRCUMVENTION DETECTED               │
+│                                          │
+│ Claude Shopping Agent                    │
+│                                          │
+│ The agent attempted 4 purchases          │
+│ within 3 minutes.                        │
+│                                          │
+│ ₹9,800                                   │
+│ ₹9,700                                   │
+│ ₹9,900                                   │
+│ ₹9,600                                   │
+│                                          │
+│ Aggregate exposure                       │
+│ ₹39,000                                  │
+│                                          │
+│ Transaction limit                        │
+│ ₹10,000                                  │
+│                                          │
+│ The sequence may be attempting to        │
+│ circumvent the spending policy.          │
+│                                          │
+│ [ BLOCK ]       [ REVIEW ]              │
+└──────────────────────────────────────────┘
+```
+
+This should be one of the strongest screens in the demo.
+
+---
+
+# 25. Intent Visualization
+
+Show the AI's interpretation separately from the security decision.
+
+```text
+AI INTENT
+
+"Find me headphones under ₹15,000."
+
+Structured interpretation:
+
+Category
+Electronics
+
+Product
+Headphones
+
+Maximum
+₹15,000
+
+Currency
+INR
+```
+
+Then:
+
+```text
+TRANSACTION
+
+Sony WH-1000XM5
+₹14,499
+Amazon
+```
+
+Then:
+
+```text
+MATCH
+
+✓ Category
+✓ Product type
+✓ Budget
+```
+
+This makes intent verification visible.
+
+---
+
+# 26. Activity Table
+
+Desktop:
+
+```text
+┌──────────┬─────────┬──────────────┬─────────┬──────────┐
+│ Time     │ Agent   │ Transaction  │ Amount  │ Status   │
+├──────────┼─────────┼──────────────┼─────────┼──────────┤
+│ 20:42    │ Claude  │ Headphones   │ ₹14,499 │ APPROVED │
+│ 20:37    │ Gemini  │ MacBook      │ ₹42,000 │ BLOCKED  │
+│ 19:54    │ GPT     │ Gift card    │ ₹5,000  │ BLOCKED  │
+│ 19:21    │ Claude  │ Chair        │ ₹8,900  │ APPROVED │
+└──────────┴─────────┴──────────────┴─────────┴──────────┘
+```
+
+Columns:
+
+* time
+* agent
+* merchant
+* item
+* amount
+* status
+* reason
+
+---
+
+# 27. Audit Detail
+
+Audit should look like a financial flight recorder.
+
+```text
+TRANSACTION txn_84A92D
+
+STATUS
+APPROVED
+
+AMOUNT
+₹14,499
+
+MERCHANT
+Amazon
+
+AGENT
+Claude Shopping Agent
+
+────────────────────────────
+
+TIMELINE
+
+20:42:01
+Intent created
+
+20:42:12
+Payment request received
+
+20:42:12
+Agent authenticated
+
+20:42:12
+Policy evaluated
+
+20:42:12
+Risk: LOW
+
+20:42:13
+User notified
+
+20:42:25
+User approved
+
+20:42:25
+Authorization issued
+
+20:42:31
+Payment initiated
+
+20:42:34
+Payment captured
+```
+
+Technical IDs can appear in monospace.
+
+---
+
+# 28. Simulation Page
+
+The simulation page should be one of the strongest web features.
+
+Header:
+
+```text
+POLICY SIMULATION
+
+Test your policy against
+10,000 historical/synthetic
+agent requests.
+```
+
+Results:
+
+```text
+REQUESTS
+10,000
+
+ALLOWED
+7,241
+
+APPROVAL REQUIRED
+1,830
+
+BLOCKED
+929
+```
+
+Then:
+
+```text
+Potential policy violations prevented
+₹4.7L
+```
+
+Do not claim real savings unless measured.
+
+---
+
+# 29. Simulator Visualization
+
+Use a simple timeline:
+
+```text
+AGENT REQUEST
+      │
+      ▼
+AUTHORITY
+      │
+      ▼
+POLICY
+      │
+      ▼
+RISK
+      │
+      ▼
+DECISION
+```
+
+Clicking each stage reveals the decision inputs.
+
+---
+
+# 30. Empty States
+
+Avoid generic:
+
+> "Nothing here."
+
+Use contextual empty states.
+
+### Approvals
+
+```text
+You're all caught up.
+
+No AI agent currently needs
+your approval.
+```
+
+### Activity
+
+```text
+No financial activity yet.
+
+Connect an agent to start
+delegating safely.
+```
+
+### Risk
+
+```text
+No active risks.
+
+Your agents are behaving
+within their current baseline.
+```
+
+---
+
+# 31. Loading States
+
+Use skeletons rather than spinners where possible.
+
+Example:
+
+```text
+┌─────────────────────────┐
+│ █████████████           │
+│ ███████                 │
+│                         │
+│ ███████████████         │
+└─────────────────────────┘
+```
+
+For authorization:
+
+```text
+Evaluating request...
+```
+
+Then show stages:
+
+```text
+✓ Agent identity
+✓ Policy
+✓ Intent
+● Risk analysis
+○ Decision
+```
+
+This makes the security pipeline visible.
+
+---
+
+# 32. Error States
+
+Errors must explain what happened.
+
+Bad:
+
+```text
+Something went wrong.
+```
+
+Good:
+
+```text
+Payment could not be authorized.
+
+The Razorpay payment service is
+currently unavailable.
+
+Your authorization was not issued.
+No payment was attempted.
+
+[ RETRY ]
+```
+
+Security errors should explicitly distinguish:
+
+* authorization failure
+* payment failure
+* network failure
+* agent failure
+
+---
+
+# 33. Toasts
+
+Keep them short.
+
+Success:
+
+```text
+✓ Agent approved for this purchase
+```
+
+Rejection:
+
+```text
+Transaction rejected and recorded
+```
+
+Freeze:
+
+```text
+✓ Agent frozen on this device
+```
+
+Sync:
+
+```text
+✓ Local activity synced
+```
+
+Never show sensitive payment data in a toast.
+
+---
+
+# 34. Icons
+
+Use Lucide-style line icons.
+
+Recommended:
+
+```text
+Shield
+Bot
+CreditCard
+ShoppingCart
+Bell
+AlertTriangle
+ShieldCheck
+ShieldAlert
+Ban
+Lock
+Unlock
+Activity
+Clock
+History
+Settings
+Zap
+```
+
+Icon stroke:
+
+```text
+1.75px – 2px
+```
+
+Do not mix multiple icon libraries.
+
+---
+
+# 35. Cards
+
+Cards should be restrained.
+
+Default:
+
+```text
+background: #FFFFFF
+border: 1px solid #E4E7EC
+radius: 10px
+shadow: low
+```
+
+Do not place every individual UI element inside a card.
+
+Use cards for:
+
+* metrics
+* agent summaries
+* risk events
+* approval requests
+* policy groups
+
+Use plain rows for activity tables.
+
+---
+
+# 36. Borders
+
+Borders are important.
+
+Use:
+
+```text
+#E4E7EC
+```
+
+Default:
+
+```text
+1px
+```
+
+Security state:
+
+```text
+4px left border
+```
+
+Do not create heavy outlines around everything.
+
+---
+
+# 37. Shadows
+
+Use shadows sparingly.
+
+### Low
+
+```text
+0 1px 2px rgba(16,24,40,0.04)
+```
+
+### Medium
+
+```text
+0 4px 12px rgba(16,24,40,0.08)
+```
+
+### High
+
+```text
+0 12px 32px rgba(16,24,40,0.12)
+```
+
+The dashboard should remain mostly flat.
+
+---
+
+# 38. Dark Mode
+
+Dark mode is optional for MVP but should be architecturally supported.
+
+Background:
+
+```text
+#080C14
+```
+
+Card:
+
+```text
+#101828
+```
+
+Border:
+
+```text
+#1D2939
+```
+
+Foreground:
+
+```text
+#F2F4F7
+```
+
+Muted:
+
+```text
+#98A2B3
+```
+
+Do not simply invert the colors.
+
+Semantic states remain:
+
+```text
+green = approved
+red = blocked/rejected
+amber = pending
+blue = information
+```
+
+---
+
+# 39. Mobile Navigation
+
+Use bottom navigation for primary mobile areas:
+
+```text
+┌──────────────────────────────┐
+│                              │
+│          CONTENT             │
+│                              │
+├──────────────────────────────┤
+│ Home │ Approvals │ Activity  │
+│      │           │ Agents   │
+└──────────────────────────────┘
+```
+
+Recommended:
+
+```text
+Home
+Approvals
+Activity
+Agents
+```
+
+Settings can be inside the profile/device area.
+
+---
+
+# 40. Mobile Home
+
+The home screen should answer:
+
+> **"Is everything under control?"**
+
+```text
+AgentPay Guard
+
+● Device protected
+
+₹18,420
+spent today
+
+2
+approvals needed
+
+3
+agents active
+
+────────────────────
+
+RECENT ACTIVITY
+
+🟢 Sony Headphones
+₹14,499
+
+🔴 MacBook
+₹42,000
+
+────────────────────
+
+ACTIVE AGENTS
+
+Claude
+● Active
+
+Gemini
+● Active
+
+ChatGPT
+● Active
+```
+
+---
+
+# 41. Mobile Emergency Action
+
+The app should have a prominent but not constantly visible emergency action.
+
+Inside the agent detail:
+
+```text
+[ FREEZE AGENT ]
+```
+
+For critical events:
+
+```text
+┌─────────────────────────────┐
+│ 🚨 CRITICAL AGENT ACTIVITY │
+│                             │
+│ Unusual spending detected   │
+│                             │
+│ [ FREEZE NOW ]              │
+└─────────────────────────────┘
+```
+
+---
+
+# 42. Security Indicators
+
+Use a compact device status:
+
+```text
+● DEVICE PROTECTED
+```
+
+Possible states:
+
+```text
+● PROTECTED
+● SYNCING
+● OFFLINE
+● ACTION REQUIRED
+● SECURITY ALERT
+```
+
+Offline is not an error.
+
+Show:
+
+```text
+OFFLINE
+Local protection active
+```
+
+This reinforces the local-first architecture.
+
+---
+
+# 43. Offline State
+
+When disconnected:
+
+```text
+┌─────────────────────────────────┐
+│ OFFLINE                          │
+│                                 │
+│ Local protection remains active.│
+│ Policies and hard authorization │
+│ checks continue on this device. │
+│                                 │
+│ Last sync                       │
+│ 8:42 PM                         │
+└─────────────────────────────────┘
+```
+
+Never imply:
+
+> "Security disabled because you're offline."
+
+---
+
+# 44. Design Rules
+
+## Do
+
+* make amounts visually prominent
+* explain every security decision
+* distinguish user rejection from policy blocking
+* show agent identity
+* show user intent
+* show merchant
+* show exact reason
+* make Accept/Reject obvious
+* keep audit records readable
+* use green/red semantic states consistently
+* prioritize operational clarity
+
+## Don't
+
+* use excessive gradients
+* use giant AI robot illustrations
+* use glowing neon cyberpunk visuals
+* turn everything into a card
+* hide rejection reasons
+* make the dashboard more important than the approval experience
+* let an LLM decision look authoritative
+* use red for ordinary warnings
+* make cloud connectivity look like the security boundary
+* copy Razorpay's branding
+
+---
+
+# 45. Visual Personality
+
+AgentPay Guard should feel like:
+
+```text
+Financial infrastructure
+        +
+Security console
+        +
+AI agent control
+```
+
+Not:
+
+```text
+Crypto dashboard
+        or
+Generic AI SaaS
+        or
+Traditional banking app
+```
+
+The product should communicate:
+
+**Calm. Precise. Trustworthy. Technical. Controlled.**
+
+---
+
+# 46. Brand Voice
+
+Interface copy should be:
+
+* short
+* factual
+* specific
+* non-alarmist
+* action-oriented
+
+Bad:
+
+> "Uh-oh! Your AI is trying something suspicious!"
+
+Good:
+
+> **Potential policy circumvention detected.**
+
+Bad:
+
+> "Your payment is super safe!"
+
+Good:
+
+> **Policy checks passed. User approval required.**
+
+Bad:
+
+> "Oops!"
+
+Good:
+
+> **Authorization denied. No payment was attempted.**
+
+---
+
+# 47. Primary Design Principle
+
+Every important screen should make this sequence understandable:
+
+```text
+WHAT DOES THE AI WANT?
+          ↓
+WHY?
+          ↓
+IS IT ALLOWED?
+          ↓
+WHAT IS THE RISK?
+          ↓
+WHAT CAN I DO?
+          ↓
+WHAT HAPPENED?
+```
+
+If a user can answer those six questions, the interface is doing its job.
+
+---
+
+# 48. Signature Component: The Guard Decision
+
+The most recognizable AgentPay Guard component should be the **Guard Decision Card**.
+
+```text
+┌─────────────────────────────────────────────┐
+│ 🟠 ACTION REQUIRED                         │
+│                                             │
+│ Claude Shopping Agent                      │
+│                                             │
+│ Sony WH-1000XM5                            │
+│ Amazon                                      │
+│                                             │
+│                    ₹14,499                  │
+│                                             │
+│ ──────────────────────────────────────────  │
+│                                             │
+│ USER INTENT                                 │
+│ Headphones under ₹15,000                   │
+│                                             │
+│ GUARD CHECKS                                │
+│ ✓ Agent authorized                          │
+│ ✓ Budget valid                              │
+│ ✓ Category allowed                          │
+│ ⚠ New merchant                              │
+│                                             │
+│ RISK                                        │
+│ LOW                                         │
+│                                             │
+│ ┌──────────────┐   ┌────────────────────┐  │
+│ │    REJECT    │   │      ACCEPT        │  │
+│ └──────────────┘   └────────────────────┘  │
+└─────────────────────────────────────────────┘
+```
+
+This should become the visual signature of the product.
+
+---
+
+# 49. Design Success Criteria
+
+The design succeeds if a first-time user can understand a payment request in under 5 seconds:
+
+```text
+Agent
+Product
+Merchant
+Amount
+Reason
+Decision
+```
+
+And if a judge can understand the core product without being told:
+
+> **AI wants to spend → Guard checks it → user decides → Razorpay executes.**
+
+---
+
+# 50. Final Design Direction
+
+AgentPay Guard should look like the **security layer that agentic commerce was missing**.
+
+The visual hierarchy is:
+
+```text
+              TRUST
+                │
+                ▼
+          USER DECISION
+                │
+       ┌────────┴────────┐
+       ▼                 ▼
+    APPROVE             REJECT
+      GREEN               RED
+       │                  │
+       ▼                  ▼
+   AUTHORIZED           BLOCKED
+       │
+       ▼
+    RAZORPAY
+```
+
+The AI is visually secondary.
+
+The payment amount and user decision are primary.
+
+The Guard's reasoning is visible but concise.
+
+The audit trail is precise.
+
+The Android device is the trusted local authority.
+
+The web dashboard is the operational control plane.
+
+That is the visual identity of **AgentPay Guard**.
+
+```
+```
+

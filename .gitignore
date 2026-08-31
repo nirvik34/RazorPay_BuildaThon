@@ -46,7 +46,6 @@ captures/
 .DS_Store
 Thumbs.db
 
-docs/
 .agent/
 .ruff_cache/
 node_modules/
