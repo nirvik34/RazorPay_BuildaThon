@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { TransactionRecord } from "@/lib/types";
-import { formatINR, formatTime } from "@/lib/format";
+import { formatINR, formatTime, formatReasonCode } from "@/lib/format";
 import { StatusPill } from "@/components/status-pill";
 
 export function ActivityTable({ records }: { records: TransactionRecord[] }) {
@@ -24,12 +24,13 @@ export function ActivityTable({ records }: { records: TransactionRecord[] }) {
           {records.map((rec) => {
             const blockReason = rec.decision.reasonCodes.find((r) => r.severity === "block");
             const warnReason = rec.decision.reasonCodes.find((r) => r.severity === "warn");
-            const reason =
+            const rawReason =
               rec.decision.decision === "BLOCK"
-                ? blockReason?.code ?? "BLOCKED"
+                ? blockReason?.label || blockReason?.code || "BLOCKED"
                 : rec.outcome === "DENIED"
                   ? "USER_REJECTED"
-                  : (warnReason?.code ?? "APPROVED");
+                  : (warnReason?.label || warnReason?.code || "APPROVED");
+            const formattedReason = formatReasonCode(rawReason);
             return (
               <tr key={rec.request.requestId} className="border-b border-border last:border-b-0 hover:bg-background">
                 <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-muted">{formatTime(rec.request.timestamp)}</td>
@@ -41,8 +42,8 @@ export function ActivityTable({ records }: { records: TransactionRecord[] }) {
                   <StatusPill decision={rec.decision.decision} outcome={rec.outcome} />
                 </td>
                 <td className="px-4 py-2.5">
-                  <Link href={`/audit/${rec.request.requestId}`} className="font-mono text-xs text-brand hover:underline">
-                    {reason}
+                  <Link href={`/audit/${rec.request.requestId}`} className="text-xs font-medium text-brand hover:underline">
+                    {formattedReason}
                   </Link>
                 </td>
               </tr>

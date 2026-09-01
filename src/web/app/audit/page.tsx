@@ -1,13 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useGuard } from "@/lib/store";
 import { PageHeader, EmptyState } from "@/components/stat-card";
 import { ActivityTable } from "@/components/activity-table";
 import { relativeDay } from "@/lib/format";
+import { ViewToggle, ViewMode } from "@/components/view-toggle";
+import { LogsDashboardGraph } from "@/components/logs-dashboard-graph";
 
 export default function AuditPage() {
   const { transactions } = useGuard();
+  const [viewMode, setViewMode] = useState<ViewMode>("logs");
 
   const groups = useMemo(() => {
     const sorted = [...transactions].sort(
@@ -24,18 +27,22 @@ export default function AuditPage() {
   }, [transactions]);
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
-        title="Audit"
+        title="Audit Log & Analytics"
         description="Financial flight recorder. Every decision chain is recorded locally and replayable."
+        action={<ViewToggle mode={viewMode} onChange={setViewMode} />}
       />
-      {groups.length === 0 ? (
+
+      {viewMode === "graph" ? (
+        <LogsDashboardGraph records={transactions} />
+      ) : groups.length === 0 ? (
         <EmptyState title="No audit records yet." body="Decisions will appear here as agents act." />
       ) : (
         <div className="space-y-8">
           {groups.map(([day, records]) => (
             <section key={day}>
-              <h2 className="mb-3 font-mono text-[11px] font-bold uppercase tracking-widest text-muted">{day}</h2>
+              <h2 className="mb-3 font-mono text-[11px] font-bold uppercase tracking-widest text-slate-400">{day}</h2>
               <ActivityTable records={records} />
             </section>
           ))}

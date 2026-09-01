@@ -36,6 +36,15 @@ export function relativeDay(iso: string, now?: Date): string {
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" }).toUpperCase();
 }
 
+export function formatReasonCode(code: string): string {
+  if (!code) return "";
+  return code
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
 function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
+
