@@ -14,53 +14,7 @@ When an AI agent attempts to make a purchase, AgentPay Guard intercepts the requ
 
 ## System Overview & Architecture Diagram
 
-```mermaid
-flowchart TD
-    subgraph Agents ["AI Agent Layer"]
-        A1[Claude / Custom GPT / Agent]
-        A2[Agent Simulator]
-    end
 
-    subgraph Integration ["Interface & Protocol Layer"]
-        MCP[FastMCP Server :8002]
-        OAPI[OpenAPI / ChatGPT Action]
-    end
-
-    subgraph Core ["Backend & Control Plane"]
-        API[FastAPI Backend :8000]
-        ENGINE[12-Step Decision Engine]
-        ML[ML Risk Classifier & Anomaly Detector]
-        STATE[(State & Audit Logger)]
-        WS[WebSocket Event Broadcaster]
-    end
-
-    subgraph UserInterface ["Human Consent Anchor"]
-        ANDROID[Android App / Trust Anchor]
-        WEB[Next.js Web Control Plane :3000]
-    end
-
-    subgraph Payment ["Gateway Execution"]
-        RZP[Razorpay API / Orders & Checkout]
-    end
-
-    A1 -->|MCP Tool / HTTP| MCP
-    A2 -->|REST API| API
-    MCP -->|Internal RPC| API
-    OAPI -->|REST API| API
-
-    API --> ENGINE
-    ENGINE --> ML
-    ENGINE --> STATE
-    ENGINE --> WS
-    WS -->|Live Updates| WEB
-    API <-->|Poll / Action API| ANDROID
-    API <-->|REST / WS| WEB
-
-    ANDROID -->|User Consent Accept/Reject| API
-    WEB -->|User Consent Accept/Reject| API
-
-    API -->|Create Order / Verify Payment| RZP
-```
 
 ![AgentPay Guard Architecture](./architecture.png)
 
