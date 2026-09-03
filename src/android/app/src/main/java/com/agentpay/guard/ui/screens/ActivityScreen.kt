@@ -34,6 +34,7 @@ import com.agentpay.guard.ui.components.formatINR
 @Composable
 fun ActivityScreen(viewModel: GuardViewModel) {
     val history by viewModel.history.collectAsState()
+    var isGraphMode by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -41,12 +42,31 @@ fun ActivityScreen(viewModel: GuardViewModel) {
     ) {
         item {
             Spacer(Modifier.height(8.dp))
-            Text("Activity", style = MaterialTheme.typography.headlineSmall)
-            Text("Permanent local timeline of every decision.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Activity", style = MaterialTheme.typography.headlineSmall)
+                    Text("Permanent local timeline of every decision.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                com.agentpay.guard.ui.components.ViewToggle(
+                    isGraphMode = isGraphMode,
+                    onToggle = { isGraphMode = it }
+                )
+            }
+            Spacer(Modifier.height(8.dp))
         }
-        items(history.sortedByDescending { it.request.timestampMs }, key = { it.request.requestId }) { record ->
-            ActivityCard(record)
+
+        if (isGraphMode) {
+            item {
+                com.agentpay.guard.ui.components.LogsGraphDashboard(history = history)
+            }
+        } else {
+            items(history.sortedByDescending { it.request.timestampMs }, key = { it.request.requestId }) { record ->
+                ActivityCard(record)
+            }
         }
         item { Spacer(Modifier.height(24.dp)) }
     }
@@ -80,9 +100,10 @@ private fun ActivityCard(record: TransactionRecord) {
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                val reason = record.decision.blockReason()?.label
-                if (reason != null) {
-                    Text(reason, fontSize = 12.sp, color = com.agentpay.guard.ui.theme.GuardColors.DangerText, fontWeight = FontWeight.Medium)
+                val rawReason = record.decision.blockReason()?.label
+                if (rawReason != null) {
+                    val formattedReason = formatReasonLabel(rawReason)
+                    Text(formattedReason, fontSize = 12.sp, color = com.agentpay.guard.ui.theme.GuardColors.DangerText, fontWeight = FontWeight.Medium)
                 }
                 when {
                     record.decision.decision == com.agentpay.guard.core.model.DecisionType.BLOCK ->
@@ -103,3 +124,12 @@ private fun ActivityCard(record: TransactionRecord) {
 
 private fun formatTime(timestampMs: Long): String =
     java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(timestampMs))
+
+private fun formatReasonLabel(raw: String): String {
+    if (raw.isBlank()) return raw
+    return raw.split("_")
+        .joinToString(" ") { word ->
+            word.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+        }
+}
+

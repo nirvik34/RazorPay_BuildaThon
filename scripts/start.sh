@@ -4,11 +4,11 @@
 # Runs Backend (8000), MCP Server (8002), Web Frontend (3000), and ngrok Tunnel
 # ==============================================================================
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 # Colors for output
-RED='\031[0;31m'
+RED='\033[0;31m'
 GREEN='\033[0;32m'
 CYAN='\033[0;36m'
 YELLOW='\033[1;33m'

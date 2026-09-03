@@ -1,32 +1,41 @@
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
 *.egg-info/
 .venv/
 venv/
+ENV/
+env/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 
-# Environment / secrets
+# Environment & Secrets
 .env
 .env.local
 .env.*.local
-*.sh
+*.pem
+*.key
 
 # Node / Next.js (src/web)
 node_modules/
 .next/
 out/
+build/
 next-env.d.ts
 *.tsbuildinfo
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
-# Backend local state
+# Backend & Local State
 data/state.json
 src/backend/data/
+*.log
 
-# ML artifacts
+# ML Artifacts
 src/ml/models/*.joblib
 src/ml/data/dataset.csv
 src/ml/evaluation/metrics.json
@@ -34,18 +43,28 @@ src/ml/evaluation/metrics.json
 # Android / Kotlin
 .gradle/
 build/
+app/build/
 local.properties
-.idea/
-*.iml
 captures/
 .externalNativeBuild/
 .cxx/
+*.apk
+*.aab
+*.keystore
+*.jks
 
-# Editors / OS
+# IDEs & Editors
 .vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+*.swp
+*.swo
+*~
+
+# OS & Tooling
 .DS_Store
 Thumbs.db
-
 .agent/
-.ruff_cache/
-node_modules/
+.gemini/

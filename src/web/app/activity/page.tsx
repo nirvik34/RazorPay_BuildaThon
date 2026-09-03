@@ -5,6 +5,8 @@ import clsx from "clsx";
 import { useGuard } from "@/lib/store";
 import { PageHeader, EmptyState } from "@/components/stat-card";
 import { ActivityTable } from "@/components/activity-table";
+import { ViewToggle, ViewMode } from "@/components/view-toggle";
+import { LogsDashboardGraph } from "@/components/logs-dashboard-graph";
 
 const FILTERS = ["ALL", "APPROVED", "PENDING", "BLOCKED"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -12,6 +14,7 @@ type Filter = (typeof FILTERS)[number];
 export default function ActivityPage() {
   const { transactions } = useGuard();
   const [filter, setFilter] = useState<Filter>("ALL");
+  const [viewMode, setViewMode] = useState<ViewMode>("logs");
 
   const records = [...transactions]
     .filter((rec) => {
@@ -23,28 +26,38 @@ export default function ActivityPage() {
     .sort((a, b) => new Date(b.request.timestamp).getTime() - new Date(a.request.timestamp).getTime());
 
   return (
-    <div>
-      <PageHeader title="Activity" description="Every payment request, decision and outcome on this device." />
+    <div className="space-y-6">
+      <PageHeader
+        title="Activity Logs & Analytics"
+        description="Every payment request, decision, and outcome logged on this device."
+        action={<ViewToggle mode={viewMode} onChange={setViewMode} />}
+      />
 
-      <div className="mb-4 flex gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={clsx(
-              "rounded-full px-3.5 py-1.5 text-[12px] font-semibold tracking-wide",
-              filter === f ? "bg-navy text-white" : "border border-border bg-white text-muted hover:text-foreground"
-            )}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
-
-      {records.length === 0 ? (
-        <EmptyState title="No financial activity yet." body="Connect an agent to start delegating safely." />
+      {viewMode === "graph" ? (
+        <LogsDashboardGraph records={records} />
       ) : (
-        <ActivityTable records={records} />
+        <div>
+          <div className="mb-4 flex gap-2">
+            {FILTERS.map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={clsx(
+                  "rounded-full px-3.5 py-1.5 text-[12px] font-semibold tracking-wide transition-colors",
+                  filter === f ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                )}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+
+          {records.length === 0 ? (
+            <EmptyState title="No financial activity yet." body="Connect an agent to start delegating safely." />
+          ) : (
+            <ActivityTable records={records} />
+          )}
+        </div>
       )}
     </div>
   );
