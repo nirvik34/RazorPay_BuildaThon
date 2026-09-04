@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,8 +20,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -32,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.agentpay.guard.core.model.DecisionType
 import com.agentpay.guard.core.model.TransactionRecord
 import com.agentpay.guard.ui.theme.GuardColors
+import java.util.Locale
 
 @Composable
 fun LogsGraphDashboard(
@@ -45,7 +45,7 @@ fun LogsGraphDashboard(
     val pendingCount = history.count { it.isPendingApproval }
     val blockedCount = history.count { it.decision.decision == DecisionType.BLOCK }
     val avgRisk = if (totalCount > 0) (history.sumOf { it.decision.riskScore } / totalCount) else 0
-    val blockRate = if (totalCount > 0) String.format("%.1f", (blockedCount.toFloat() / totalCount) * 100) else "0.0"
+    val blockRate = if (totalCount > 0) String.format(Locale.US, "%.1f", (blockedCount.toFloat() / totalCount) * 100) else "0.0"
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -194,7 +194,7 @@ private fun TimelineChartCard(history: List<TransactionRecord>) {
 
         val sorted = history.sortedBy { it.request.timestampMs }
         val points = if (sorted.isNotEmpty()) {
-            val maxAmount = sorted.maxOf { it.request.amount }.coerceAtLeast(1.0)
+            val maxAmount = sorted.maxOf { it.request.amount }.toDouble().coerceAtLeast(1.0)
             sorted.takeLast(12).map { (it.request.amount / maxAmount).toFloat() }
         } else {
             listOf(0.2f, 0.5f, 0.3f, 0.8f, 0.4f, 0.9f)
@@ -432,7 +432,7 @@ private fun AgentBreakdownCard(history: List<TransactionRecord>) {
             Text("No agent breakdown data available.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                agentsMap.forEach { (agent, records) =>
+                for ((agent, records) in agentsMap) {
                     val spend = records.sumOf { it.request.amount }
                     val count = records.size
                     Row(
@@ -457,3 +457,4 @@ private fun AgentBreakdownCard(history: List<TransactionRecord>) {
         }
     }
 }
+
