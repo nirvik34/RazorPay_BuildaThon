@@ -171,8 +171,9 @@ CHECKOUT_PAGE = """<!DOCTYPE html>
   .meta {{ color: #667085; font-size: 13px; }}
   .status {{ margin-top: 18px; font-size: 14px; font-weight: 600; min-height: 20px; }}
   .ok {{ color: #067647 }} .bad {{ color: #B42318 }}
-  button {{ margin-top: 16px; width: 100%; padding: 13px; border: 0; border-radius: 8px;
-            background: #2563EB; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; }}
+  button {{ width: 100%; padding: 13px; border: 0; border-radius: 8px;
+            color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; }}
+  button:hover {{ opacity: 0.9; }}
 </style>
 </head>
 <body>
@@ -183,7 +184,8 @@ CHECKOUT_PAGE = """<!DOCTYPE html>
   <div class="amount">₹{rupees}</div>
   <div class="meta">Complete payment to execute the authorized purchase.<br>Single-use authorization · expires in 5 min.</div>
   <div class="status" id="status">Opening Razorpay…</div>
-  <button onclick="pay()">PAY NOW</button>
+  <button onclick="pay()" style="background: #2563EB; margin-top: 16px;">PAY VIA RAZORPAY</button>
+  <button onclick="autoCapture()" style="background: #059669; margin-top: 10px;">⚡ INSTANT AUTO-CAPTURE (DEMO)</button>
 </div>
 <script>
 var ORDER = "{order_id}";
@@ -196,7 +198,11 @@ function pay() {{
     name: "{merchant_title} (via AgentPay Guard)",
     description: "{product}",
     theme: {{ color: "#2563EB" }},
-    prefill: {{ name: "AgentPay User" }},
+    prefill: {{
+      name: "AgentPay User",
+      email: "demo@agentpayguard.com",
+      contact: "9876543210"
+    }},
     handler: function (r) {{
       document.getElementById('status').textContent = 'Verifying payment…';
       fetch('/checkout/confirm', {{
@@ -230,6 +236,34 @@ function pay() {{
     }}}}
   }});
   rzp.open();
+}}
+
+function autoCapture() {{
+  document.getElementById('status').className = 'status';
+  document.getElementById('status').textContent = 'Auto-capturing payment…';
+  fetch('/checkout/execute', {{
+    method: 'POST',
+    headers: {{ 'Content-Type': 'application/json' }},
+    body: JSON.stringify({{ authorization_id: AUTH }})
+  }})
+  .then(function(res) {{ return res.json(); }})
+  .then(function(out) {{
+    var s = document.getElementById('status');
+    if (out.ok && out.payment && out.payment.status === 'captured') {{
+      s.className = 'status ok';
+      s.textContent = '✅ Payment captured — ' + out.payment.id;
+    }} else if (out.ok && out.payment) {{
+      s.className = 'status ok';
+      s.textContent = '✅ Payment processed — ' + out.payment.id + ' (' + out.payment.status + ')';
+    }} else {{
+      s.className = 'status bad';
+      s.textContent = 'Capture failed';
+    }}
+  }})
+  .catch(function() {{
+    document.getElementById('status').className = 'status bad';
+    document.getElementById('status').textContent = 'Auto-capture request failed.';
+  }});
 }}
 window.onload = pay;
 </script>
@@ -282,6 +316,17 @@ def checkout_confirm(payload: dict) -> dict:
         },
         timeout=60,
     )
+
+
+@app.post("/checkout/execute")
+def checkout_execute(payload: dict) -> dict:
+    return guard_tools.http(
+        "POST",
+        "/guard/payments/execute",
+        {"authorizationId": payload.get("authorization_id")},
+        timeout=60,
+    )
+
 
 
 @app.on_event("startup")
