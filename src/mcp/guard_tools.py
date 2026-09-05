@@ -343,8 +343,14 @@ def tool_check_payment(args: dict) -> str:
             ]
             if payment.get("status") == "awaiting_checkout":
                 pub_url = get_public_url()
-                auth_id = payment.get("authorizationId") or payment.get("id")
-                lines.append(f"💳 Payment link ready: {pub_url}/checkout/{auth_id}")
+                auth_id = (
+                    payment.get("authorizationId")
+                    or (status.get("authorization") or {}).get("authorizationId")
+                    or (status.get("checkoutUrl", "").split("/checkout/")[-1] if status.get("checkoutUrl") else None)
+                    or payment.get("id")
+                )
+                if auth_id and str(auth_id) != "None":
+                    lines.append(f"💳 Payment link ready: {pub_url}/checkout/{auth_id}")
                 lines.append("User has not completed Razorpay Checkout yet.")
             return "\n".join(lines)
 

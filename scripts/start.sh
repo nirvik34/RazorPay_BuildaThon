@@ -29,6 +29,13 @@ elif [ -d "$ROOT_DIR/venv" ]; then
     source "$ROOT_DIR/venv/bin/activate"
 fi
 
+# Clean up any lingering processes on ports 8000, 8002, 3000
+echo -e "${BLUE}[+] Cleaning up any lingering processes on ports 8000, 8002, 3000...${NC}"
+fuser -k 8000/tcp 8002/tcp 3000/tcp 2>/dev/null || true
+pkill -f "uvicorn app.main:app" 2>/dev/null || true
+pkill -f "remote_server:app" 2>/dev/null || true
+sleep 1
+
 # Track process IDs for graceful shutdown
 PIDS=()
 

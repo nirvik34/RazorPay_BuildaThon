@@ -246,11 +246,9 @@ async def execute_authorization(authorization_id: str, allow_idempotent: bool = 
         state = store.state
         state["payments"] = state.get("payments", {})
         payment_key = payment.get("id") or f"pending_{authorization_id}"
-        state["payments"][payment_key] = {
-            **payment,
-            "authorizationId": authorization_id,
-            "requestId": request_id,
-        }
+        payment["authorizationId"] = authorization_id
+        payment["requestId"] = request_id
+        state["payments"][payment_key] = payment
         state["audit"][request_id].append(
             {
                 "eventId": new_id("evt"),

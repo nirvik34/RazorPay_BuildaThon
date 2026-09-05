@@ -101,7 +101,7 @@ class GuardClient:
             body["requestId"] = pr.requestId
         headers = {"X-Agent-Key": self.agent_key or pr.agentId}
         req = urllib.request.Request(
-            f"{self.api_base}/agent/payment-request",
+            f"{self.api_base}/agent/payment-request?wait_seconds=0",
             data=json.dumps(body).encode(),
             headers={"Content-Type": "application/json", **headers},
             method="POST",
